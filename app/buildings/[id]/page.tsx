@@ -1,7 +1,7 @@
 import { BuildingDetailMap } from "@/components/building-detail-map";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getBuildingById } from "@/lib/buildings";
+import { getBuildingById, getBuildingBySlug } from "@/lib/buildings";
 import { getImageUrl } from "@/lib/constants";
 import {
   ArrowLeft,
@@ -20,7 +20,8 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
-  const building = getBuildingById(id);
+  const building =
+    getBuildingBySlug(id) ?? getBuildingById(id);
   if (!building) return { title: "建築が見つかりません" };
   return {
     title: `${building.nameJa ?? building.name} | ArchiNotes`,
@@ -59,7 +60,7 @@ function DetailSection({
 
 export default async function BuildingDetailPage({ params }: Props) {
   const { id } = await params;
-  const building = getBuildingById(id);
+  const building = getBuildingBySlug(id) ?? getBuildingById(id);
   if (!building) notFound();
 
   const yearLabel = building.yearCompleted

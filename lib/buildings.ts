@@ -27,6 +27,14 @@ export function getBuildingById(id: string): Building | null {
   return found ?? null;
 }
 
+/**
+ * slug で建築を1件取得（URL 用）
+ */
+export function getBuildingBySlug(slug: string): Building | null {
+  const found = localBuildings.find((b) => b.slug === slug || b.id === slug);
+  return found ?? null;
+}
+
 function toDateString(value: unknown): string {
   if (value && typeof value === "object" && "toDate" in value) {
     const d = (value as { toDate: () => Date }).toDate();

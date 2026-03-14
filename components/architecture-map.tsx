@@ -30,20 +30,20 @@ type BuildingMarkerProps = {
   building: Building;
   onRef: (index: number, marker: AdvancedMarkerElement | null) => void;
   index: number;
-  onNavigate: (id: string) => void;
+  onSelect: (building: Building) => void;
 };
 
 function BuildingMarker({
   building,
   onRef,
   index,
-  onNavigate,
+  onSelect,
 }: BuildingMarkerProps) {
   return (
     <AdvancedMarker
       ref={(m) => onRef(index, m)}
       position={building.location}
-      onClick={() => onNavigate(building.id)}
+      onClick={() => onSelect(building)}
       title={building.name}
     >
       <div
@@ -72,10 +72,10 @@ function BuildingMarker({
 
 function MapMarkers({
   buildings,
-  onNavigate,
+  onSelect,
 }: {
   buildings: Building[];
-  onNavigate: (id: string) => void;
+  onSelect: (building: Building) => void;
 }) {
   const map = useMap();
   const markerRefs = useRef<(AdvancedMarkerElement | null)[]>([]);
@@ -125,44 +125,71 @@ function MapMarkers({
           building={b}
           index={i}
           onRef={setMarkerRef}
-          onNavigate={onNavigate}
+          onSelect={onSelect}
         />
       ))}
     </>
   );
 }
 
-export function ArchitectureMap() {
+export type ArchitectureMapProps = {
+  /** When provided, marker tap opens bottom sheet instead of navigating. */
+  onBuildingSelect?: (building: Building) => void;
+  /** Use buildings from parent (e.g. MapContainer) instead of fetching. */
+  buildingsProp?: Building[] | null;
+  /** If true, map fills the viewport (for map-first layout). */
+  fullscreen?: boolean;
+};
+
+export function ArchitectureMap({
+  onBuildingSelect,
+  buildingsProp = null,
+  fullscreen = false,
+}: ArchitectureMapProps = {}) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
-  const [buildings, setBuildings] = useState<Building[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [buildingsState, setBuildingsState] = useState<Building[]>([]);
+  const [loading, setLoading] = useState(!buildingsProp);
   const [error, setError] = useState<string | null>(null);
 
+  const buildings = buildingsProp != null ? buildingsProp : buildingsState;
+
   const fetchBuildings = useCallback(async () => {
+    if (buildingsProp != null) return;
     const useFirestore = !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     if (!useFirestore) {
-      setBuildings(getLocalBuildings());
+      setBuildingsState(getLocalBuildings());
       setLoading(false);
       return;
     }
     try {
       setError(null);
       const list = await getPublishedBuildings();
-      setBuildings(list);
+      setBuildingsState(list);
     } catch {
-      setBuildings(getLocalBuildings());
+      setBuildingsState(getLocalBuildings());
       setError(
         "Firestore から取得できませんでした。ローカルデータを表示しています。",
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildingsProp]);
 
   useEffect(() => {
     fetchBuildings();
   }, [fetchBuildings]);
+
+  const handleSelect = useCallback(
+    (building: Building) => {
+      if (onBuildingSelect) {
+        onBuildingSelect(building);
+      } else {
+        router.push(`/buildings/${building.slug || building.id}`);
+      }
+    },
+    [onBuildingSelect, router],
+  );
 
   if (!apiKey) {
     return (
@@ -189,8 +216,12 @@ export function ArchitectureMap() {
 
   return (
     <div
-      className="min-h-[400px] w-full"
-      style={{ height: "min(60vh, calc(100vh - 220px))" }}
+      className={`w-full ${fullscreen ? "h-screen min-h-0" : "min-h-[400px]"}`}
+      style={
+        fullscreen
+          ? { height: "100vh", minHeight: 0 }
+          : { height: "min(60vh, calc(100vh - 220px))" }
+      }
     >
       <APIProvider apiKey={apiKey}>
         <Map
@@ -201,11 +232,8 @@ export function ArchitectureMap() {
           disableDefaultUI={false}
           style={{ width: "100%", height: "100%" }}
         >
-          {!loading && (
-            <MapMarkers
-              buildings={buildings}
-              onNavigate={(id) => router.push(`/buildings/${id}`)}
-            />
+          {!loading && buildings.length > 0 && (
+            <MapMarkers buildings={buildings} onSelect={handleSelect} />
           )}
         </Map>
       </APIProvider>
