@@ -1,0 +1,122 @@
+[
+  {
+    "id": "tadao-ando",
+    "slug": "tadao-ando",
+    "name": "Tadao Ando",
+    "nameJa": "安藤 忠雄",
+    "nationality": "Japanese",
+    "birthYear": 1941,
+    "deathYear": null,
+    "baseCity": "Osaka",
+    "baseCountry": "Japan",
+    "profileImageUrl": "/images/architects/tadao-ando.jpg",
+    "shortBio": "A self-taught Japanese architect known for concrete, light, and spatial minimalism.",
+    "styles": ["Minimalism", "Concrete", "Modern"],
+    "tags": ["Pritzker Prize", "Light", "Concrete"],
+    "websiteUrl": "",
+    "instagramUrl": "",
+    "notableThemes": [
+      "Use of natural light",
+      "Concrete surfaces",
+      "Silence and spatial tension"
+    ],
+    "createdAt": "2026-03-13T00:00:00.000Z",
+    "updatedAt": "2026-03-13T00:00:00.000Z"
+  },
+  {
+    "id": "kengo-kuma",
+    "slug": "kengo-kuma",
+    "name": "Kengo Kuma",
+    "nameJa": "隈 研吾",
+    "nationality": "Japanese",
+    "birthYear": 1954,
+    "deathYear": null,
+    "baseCity": "Tokyo",
+    "baseCountry": "Japan",
+    "profileImageUrl": "/images/architects/kengo-kuma.jpg",
+    "shortBio": "A Japanese architect known for material sensitivity and architecture that blends into context.",
+    "styles": ["Contemporary", "Natural Materials", "Contextual"],
+    "tags": ["Wood", "Context", "Materiality"],
+    "websiteUrl": "",
+    "instagramUrl": "",
+    "notableThemes": [
+      "Wood and natural materials",
+      "Soft boundaries",
+      "Harmony with surroundings"
+    ],
+    "createdAt": "2026-03-13T00:00:00.000Z",
+    "updatedAt": "2026-03-13T00:00:00.000Z"
+  },
+  {
+    "id": "kazuyo-sejima",
+    "slug": "kazuyo-sejima",
+    "name": "Kazuyo Sejima",
+    "nameJa": "妹島 和世",
+    "nationality": "Japanese",
+    "birthYear": 1956,
+    "deathYear": null,
+    "baseCity": "Tokyo",
+    "baseCountry": "Japan",
+    "profileImageUrl": "/images/architects/kazuyo-sejima.jpg",
+    "shortBio": "A Japanese architect known for lightness, transparency, and refined contemporary spaces.",
+    "styles": ["Contemporary", "Minimal", "Lightness"],
+    "tags": ["Transparency", "Light", "SANAA"],
+    "websiteUrl": "",
+    "instagramUrl": "",
+    "notableThemes": [
+      "Transparency",
+      "Fluid movement",
+      "Soft and open spatial composition"
+    ],
+    "createdAt": "2026-03-13T00:00:00.000Z",
+    "updatedAt": "2026-03-13T00:00:00.000Z"
+  },
+  {
+    "id": "ryue-nishizawa",
+    "slug": "ryue-nishizawa",
+    "name": "Ryue Nishizawa",
+    "nameJa": "西沢 立衛",
+    "nationality": "Japanese",
+    "birthYear": 1966,
+    "deathYear": null,
+    "baseCity": "Tokyo",
+    "baseCountry": "Japan",
+    "profileImageUrl": "/images/architects/ryue-nishizawa.jpg",
+    "shortBio": "A Japanese architect recognized for delicate structures and open, atmospheric spaces.",
+    "styles": ["Contemporary", "Minimal", "Experimental"],
+    "tags": ["SANAA", "Lightness", "Atmosphere"],
+    "websiteUrl": "",
+    "instagramUrl": "",
+    "notableThemes": [
+      "Thin structure",
+      "Open plans",
+      "Subtle atmosphere"
+    ],
+    "createdAt": "2026-03-13T00:00:00.000Z",
+    "updatedAt": "2026-03-13T00:00:00.000Z"
+  },
+  {
+    "id": "le-corbusier",
+    "slug": "le-corbusier",
+    "name": "Le Corbusier",
+    "nameJa": "ル・コルビュジエ",
+    "nationality": "Swiss-French",
+    "birthYear": 1887,
+    "deathYear": 1965,
+    "baseCity": "Paris",
+    "baseCountry": "France",
+    "profileImageUrl": "/images/architects/le-corbusier.jpg",
+    "shortBio": "A pioneer of modern architecture whose ideas shaped twentieth-century urban and architectural design.",
+    "styles": ["Modernism", "International Style"],
+    "tags": ["Modernism", "Concrete", "Urbanism"],
+    "websiteUrl": "",
+    "instagramUrl": "",
+    "notableThemes": [
+      "Pilotis",
+      "Modernist planning",
+      "Concrete and modular thinking"
+    ],
+    "createdAt": "2026-03-13T00:00:00.000Z",
+    "updatedAt": "2026-03-13T00:00:00.000Z"
+  }
+]

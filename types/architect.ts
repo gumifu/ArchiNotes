@@ -1,0 +1,20 @@
+export type Architect = {
+  id: string;
+  slug: string;
+  name: string;
+  nameJa?: string;
+  nationality?: string;
+  birthYear?: number | null;
+  deathYear?: number | null;
+  baseCity?: string;
+  baseCountry?: string;
+  profileImageUrl?: string;
+  shortBio?: string;
+  styles?: string[];
+  tags?: string[];
+  websiteUrl?: string;
+  instagramUrl?: string;
+  notableThemes?: string[];
+  createdAt: string;
+  updatedAt: string;
+};
