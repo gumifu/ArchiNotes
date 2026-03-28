@@ -11,12 +11,15 @@ import {
   recordSearchQuery,
 } from "@/lib/map-user-data";
 import type { Building } from "@/types/building";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import Bookmark from "@mui/icons-material/Bookmark";
 import History from "@mui/icons-material/History";
+import PlaceOutlined from "@mui/icons-material/PlaceOutlined";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
 import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
@@ -25,7 +28,12 @@ import ListItemText from "@mui/material/ListItemText";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+
+const PLACES_DEBOUNCE_MS = 350;
+const PLACES_MIN_CHARS = 3;
 
 const RECENT_PREVIEW = 3;
 
@@ -103,6 +111,16 @@ export type MapSearchUiAreaProps = {
   selectedBuilding: Building | null;
   onSelectBuilding: (building: Building) => void;
   onClearSelection: () => void;
+  /** Google 候補タップ時: 地図へパン＋未登録なら候補表示（登録画面は別ボタン） */
+  onGooglePlacePreview?: (placeId: string) => void | Promise<void>;
+  placePreview?: {
+    placeId: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+  } | null;
+  onClearPlacePreview?: () => void;
 };
 
 /**
@@ -113,11 +131,21 @@ export function MapSearchUiArea({
   selectedBuilding,
   onSelectBuilding,
   onClearSelection,
+  onGooglePlacePreview,
+  placePreview = null,
+  onClearPlacePreview,
 }: MapSearchUiAreaProps) {
+  const router = useRouter();
   const [panelOpen, setPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, PLACES_DEBOUNCE_MS);
   const [userDataTick, setUserDataTick] = useState(0);
   const [savedOnly, setSavedOnly] = useState(false);
+  const [placesSuggestions, setPlacesSuggestions] = useState<
+    Array<{ placeId: string; mainText: string; secondaryText?: string }>
+  >([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
+  const [placesError, setPlacesError] = useState(false);
   const [recentExpanded, setRecentExpanded] = useState(false);
 
   useEffect(() => {
@@ -187,6 +215,44 @@ export function MapSearchUiArea({
     );
   }, [buildings, searchQuery, savedOnly, userDataTick]);
 
+  useEffect(() => {
+    const q = debouncedSearchQuery.trim();
+    if (q.length < PLACES_MIN_CHARS) {
+      setPlacesSuggestions([]);
+      setPlacesError(false);
+      setPlacesLoading(false);
+      return;
+    }
+    const ac = new AbortController();
+    setPlacesLoading(true);
+    setPlacesError(false);
+    fetch(`/api/places-autocomplete?q=${encodeURIComponent(q)}`, {
+      signal: ac.signal,
+    })
+      .then((r) => r.json())
+      .then(
+        (data: {
+          suggestions?: Array<{
+            placeId: string;
+            mainText: string;
+            secondaryText?: string;
+          }>;
+        }) => {
+          if (ac.signal.aborted) return;
+          setPlacesSuggestions(data.suggestions ?? []);
+        },
+      )
+      .catch(() => {
+        if (ac.signal.aborted) return;
+        setPlacesError(true);
+        setPlacesSuggestions([]);
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setPlacesLoading(false);
+      });
+    return () => ac.abort();
+  }, [debouncedSearchQuery]);
+
   const openPanel = useCallback(() => setPanelOpen(true), []);
 
   const closePanel = useCallback(() => {
@@ -216,6 +282,29 @@ export function MapSearchUiArea({
       onSelectBuilding(b);
     },
     [searchQuery, onSelectBuilding],
+  );
+
+  const handleSelectGooglePlace = useCallback(
+    async (placeId: string) => {
+      const pid = placeId.trim();
+      const existing = buildings.find(
+        (b) => b.googlePlaceId?.trim() === pid,
+      );
+      const q = searchQuery.trim();
+      if (q) recordSearchQuery(q);
+      if (existing) {
+        trackBuildingStat(existing.id, "search_hit");
+        onSelectBuilding(existing);
+        setPanelOpen(false);
+        return;
+      }
+      if (onGooglePlacePreview) {
+        await onGooglePlacePreview(pid);
+        return;
+      }
+      router.push(`/buildings/new?placeId=${encodeURIComponent(pid)}`);
+    },
+    [buildings, searchQuery, onSelectBuilding, onGooglePlacePreview, router],
   );
 
   const handleSearchKeyDown = useCallback(
@@ -350,35 +439,170 @@ export function MapSearchUiArea({
                   hideBackButton
                   embedVariant="mapPlace"
                 />
-              ) : showResultsMode ? (
-                filtered.length === 0 ? (
-                  <Box sx={{ px: 2, py: 4 }}>
+              ) : (
+                <>
+                  {/*
+                    検索欄を空にすると showResultsMode が false になるが、
+                    placePreview（オレンジピン）は残る。このブロックは常に出し、登録導線を消さない。
+                  */}
+                  {placePreview && onClearPlacePreview && (
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 2,
+                        bgcolor: "action.hover",
+                        borderBottom: 1,
+                        borderColor: "divider",
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        地図上の登録候補
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {placePreview.name}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", mt: 0.25 }}
+                      >
+                        {placePreview.address}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", mt: 1 }}
+                      >
+                        地図のオレンジのピンで位置を確認し、問題なければ登録へ進んでください。
+                      </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ mt: 1.5 }}
+                        flexWrap="wrap"
+                        useFlexGap
+                      >
+                        <Button
+                          component={Link}
+                          href={`/buildings/new?placeId=${encodeURIComponent(placePreview.placeId)}`}
+                          variant="contained"
+                          size="small"
+                          sx={{ textTransform: "none" }}
+                        >
+                          この場所を登録する
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={onClearPlacePreview}
+                          sx={{ textTransform: "none" }}
+                        >
+                          候補を消す
+                        </Button>
+                      </Stack>
+                    </Box>
+                  )}
+                  {showResultsMode ? (
+                <>
+                  <Box sx={{ px: 2, pt: 2, pb: 0.5 }}>
                     <Typography
                       variant="body2"
                       color="text.secondary"
-                      align="center"
+                      sx={{ fontWeight: 600 }}
                     >
-                      該当する建築がありません
+                      ArchiNotes の建築（{filtered.length}件）
                     </Typography>
                   </Box>
-                ) : (
-                  <>
-                    <Box sx={{ px: 2, pt: 2, pb: 0.5 }}>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ fontWeight: 500 }}
-                      >
-                        検索・候補（{filtered.length}件）
+                  {filtered.length === 0 ? (
+                    <Box sx={{ px: 2, py: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        該当する建築がありません
                       </Typography>
                     </Box>
+                  ) : (
                     <BuildingListItems
                       items={filtered}
                       onSelect={handleSelectFromSearch}
                       selectedId={null}
                     />
-                  </>
-                )
+                  )}
+
+                  <Divider sx={{ my: 0.5 }} />
+
+                  <Box sx={{ px: 2, pt: 1.5, pb: 0.5 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontWeight: 600 }}
+                    >
+                      Google の候補
+                    </Typography>
+                  </Box>
+                  {searchQuery.trim().length < PLACES_MIN_CHARS ? (
+                    <Box sx={{ px: 2, pb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {PLACES_MIN_CHARS}
+                        文字以上で Google の候補を取得します。
+                      </Typography>
+                    </Box>
+                  ) : placesLoading ? (
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 3,
+                        display: "flex",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <CircularProgress size={26} />
+                    </Box>
+                  ) : placesError ? (
+                    <Box sx={{ px: 2, pb: 2 }}>
+                      <Typography variant="body2" color="error">
+                        Google の候補を取得できませんでした。
+                      </Typography>
+                    </Box>
+                  ) : placesSuggestions.length === 0 ? (
+                    <Box sx={{ px: 2, pb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        該当する場所がありません
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <List disablePadding dense>
+                      {placesSuggestions.map((p) => (
+                        <ListItemButton
+                          key={p.placeId}
+                          alignItems="flex-start"
+                          onClick={() => handleSelectGooglePlace(p.placeId)}
+                          sx={{ py: 1.5, px: 2 }}
+                        >
+                          <PlaceOutlined
+                            sx={{
+                              color: "primary.main",
+                              mr: 1.5,
+                              mt: 0.25,
+                              fontSize: 22,
+                            }}
+                          />
+                          <ListItemText
+                            primary={p.mainText}
+                            secondary={p.secondaryText}
+                            primaryTypographyProps={{
+                              variant: "body2",
+                              fontWeight: 600,
+                              noWrap: true,
+                            }}
+                            secondaryTypographyProps={{
+                              variant: "caption",
+                              color: "text.secondary",
+                              noWrap: true,
+                            }}
+                          />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  )}
+                </>
               ) : (
                 <>
                   {recentSearchQueries.length > 0 && (
@@ -542,6 +766,8 @@ export function MapSearchUiArea({
                       selectedId={null}
                     />
                   </Box>
+                </>
+              )}
                 </>
               )}
             </Box>

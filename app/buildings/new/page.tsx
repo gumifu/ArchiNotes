@@ -2,6 +2,7 @@ import { BuildingMvpForm } from "@/components/building-mvp-form";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 
 export const metadata = {
   title: "建築を登録 | ArchiNotes",
@@ -18,9 +19,16 @@ export default function NewBuildingPage() {
       </Button>
       <h1 className="text-foreground mb-1 text-lg font-semibold">建築を登録</h1>
       <p className="text-muted-foreground mb-6 text-sm">
-        必須: 名称・緯度・経度。地図をクリックすると位置を指定できます。
+        必須: 名称・緯度・経度。検索から Places
+        を選ぶと初期値が入ります（本文は DB に保存しません。確認のうえ保存してください）。
       </p>
-      <BuildingMvpForm mode="create" />
+      <Suspense
+        fallback={
+          <p className="text-muted-foreground text-sm">読み込み中…</p>
+        }
+      >
+        <BuildingMvpForm mode="create" />
+      </Suspense>
     </div>
   );
 }

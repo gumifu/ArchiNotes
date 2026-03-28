@@ -50,6 +50,18 @@ export function MapContainer() {
   /** ピン／一覧／カードタップで true。カルーセルのみスワイプでは false のまま */
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [overrideEpoch, setOverrideEpoch] = useState(0);
+  const [placePreview, setPlacePreview] = useState<{
+    placeId: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [panTargetLatLng, setPanTargetLatLng] = useState<{
+    lat: number;
+    lng: number;
+    key: string;
+  } | null>(null);
 
   useEffect(() => {
     const bump = () => setOverrideEpoch((n) => n + 1);
@@ -95,6 +107,8 @@ export function MapContainer() {
 
   const handleBuildingSelect = useCallback(
     (building: Building, options?: BuildingSelectOptions) => {
+      setPlacePreview(null);
+      setPanTargetLatLng(null);
       recordBuildingOpened(building.id);
       setSelectedBuilding(building);
       if (options?.panMap !== false) {
@@ -112,11 +126,61 @@ export function MapContainer() {
     [isMapCompact],
   );
 
+  const clearPlacePreview = useCallback(() => {
+    setPlacePreview(null);
+    setPanTargetLatLng(null);
+  }, []);
+
+  const handleGooglePlacePreview = useCallback(
+    async (placeId: string) => {
+      const pid = placeId.trim();
+      const existing = mergedBuildings.find(
+        (b) => b.googlePlaceId?.trim() === pid,
+      );
+      if (existing) {
+        clearPlacePreview();
+        handleBuildingSelect(existing);
+        return;
+      }
+      const res = await fetch(
+        `/api/places-prefill?placeId=${encodeURIComponent(pid)}`,
+      );
+      if (!res.ok) {
+        clearPlacePreview();
+        return;
+      }
+      const data = (await res.json()) as {
+        place_id: string;
+        name: string;
+        address: string;
+        lat: number;
+        lng: number;
+      };
+      setPlacePreview({
+        placeId: data.place_id,
+        name: data.name,
+        address: data.address,
+        lat: data.lat,
+        lng: data.lng,
+      });
+      setPanTargetLatLng({
+        lat: data.lat,
+        lng: data.lng,
+        key: data.place_id,
+      });
+      setSelectedBuilding(null);
+      setPanTargetBuilding(null);
+      setMobileDetailOpen(false);
+    },
+    [mergedBuildings, handleBuildingSelect, clearPlacePreview],
+  );
+
   const handleClearSelection = useCallback(() => {
     setSelectedBuilding(null);
     setPanTargetBuilding(null);
     setMobileDetailOpen(false);
-  }, []);
+    clearPlacePreview();
+  }, [clearPlacePreview]);
 
   const handleCloseMobileDetail = useCallback(() => {
     setMobileDetailOpen(false);
@@ -146,6 +210,9 @@ export function MapContainer() {
             selectedBuilding={selectedBuilding}
             onSelectBuilding={handleBuildingSelect}
             onClearSelection={handleClearSelection}
+            onGooglePlacePreview={handleGooglePlacePreview}
+            placePreview={placePreview}
+            onClearPlacePreview={clearPlacePreview}
           />
         )}
 
@@ -192,6 +259,16 @@ export function MapContainer() {
           onBuildingSelect={handleBuildingSelect}
           selectedBuilding={selectedBuilding}
           panTargetBuilding={panTargetBuilding}
+          panTargetLatLng={panTargetLatLng}
+          pendingPlaceMarker={
+            placePreview
+              ? {
+                  lat: placePreview.lat,
+                  lng: placePreview.lng,
+                  title: placePreview.name,
+                }
+              : null
+          }
         />
 
         {!loading && mergedBuildings.length > 0 && (

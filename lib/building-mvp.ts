@@ -1,6 +1,18 @@
 import type { Building } from "@/types/building";
 import type { DocumentData } from "firebase/firestore";
 
+/** カバー1 + 追加最大14 = 合計15枚まで */
+export const MVP_GALLERY_MAX_EXTRA = 14;
+
+function isHttpUrl(s: string): boolean {
+  try {
+    const u = new URL(s);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export type BuildingMvpCreateBody = {
   name: string;
   name_en?: string;
@@ -12,6 +24,8 @@ export type BuildingMvpCreateBody = {
   year?: number | null;
   description?: string;
   cover_image?: string;
+  /** カバー以外の画像 URL（最大 MVP_GALLERY_MAX_EXTRA） */
+  gallery_urls?: string[];
   metadata?: Record<string, unknown>;
 };
 
@@ -106,6 +120,16 @@ export function firestoreDataToBuilding(id: string, data: DocumentData): Buildin
       ? (data.metadata as Record<string, unknown>)
       : undefined;
 
+  let gallery: string[] | undefined;
+  if (Array.isArray(data.gallery)) {
+    const g = data.gallery
+      .filter((x): x is string => typeof x === "string")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, MVP_GALLERY_MAX_EXTRA);
+    gallery = g.length > 0 ? g : undefined;
+  }
+
   return {
     id,
     slug: typeof data.slug === "string" && data.slug ? data.slug : id,
@@ -123,7 +147,7 @@ export function firestoreDataToBuilding(id: string, data: DocumentData): Buildin
     location,
     geoPointSource: data.geoPointSource,
     coverImageUrl,
-    gallery: data.gallery,
+    gallery,
     buildingType: data.buildingType,
     style: data.style,
     structure: data.structure,
@@ -169,6 +193,10 @@ export function buildFirestoreWritePayload(
   body: BuildingMvpCreateBody,
 ): Record<string, unknown> {
   const description = body.description?.trim() ?? "";
+  const extras = (body.gallery_urls ?? [])
+    .map((u) => u.trim())
+    .filter(Boolean)
+    .slice(0, MVP_GALLERY_MAX_EXTRA);
   return {
     name: body.name.trim(),
     name_en: body.name_en?.trim() || null,
@@ -181,6 +209,7 @@ export function buildFirestoreWritePayload(
     year: body.year ?? null,
     description,
     cover_image: body.cover_image?.trim() || null,
+    gallery: extras.length > 0 ? extras : null,
     metadata: body.metadata ?? null,
     published: true,
   };
@@ -221,6 +250,44 @@ export function parseCreateBody(
     metadata = o.metadata as Record<string, unknown>;
   }
 
+  const coverTrim =
+    typeof o.cover_image === "string" ? o.cover_image.trim() : "";
+  if (coverTrim && !isHttpUrl(coverTrim)) {
+    return {
+      ok: false,
+      error: "カバー画像の URL は http(s) で始まる必要があります",
+    };
+  }
+
+  let gallery_urls: string[] | undefined;
+  if (o.gallery_urls !== undefined && o.gallery_urls !== null) {
+    if (!Array.isArray(o.gallery_urls)) {
+      return { ok: false, error: "gallery_urls は配列にしてください" };
+    }
+    if (o.gallery_urls.length > MVP_GALLERY_MAX_EXTRA) {
+      return {
+        ok: false,
+        error: `追加画像は最大 ${MVP_GALLERY_MAX_EXTRA} 枚です`,
+      };
+    }
+    const urls: string[] = [];
+    for (const item of o.gallery_urls) {
+      if (typeof item !== "string") {
+        return { ok: false, error: "gallery_urls の各要素は文字列にしてください" };
+      }
+      const t = item.trim();
+      if (!t) continue;
+      if (!isHttpUrl(t)) {
+        return {
+          ok: false,
+          error: "追加画像の URL は http(s) で始まる必要があります",
+        };
+      }
+      urls.push(t);
+    }
+    gallery_urls = urls;
+  }
+
   return {
     ok: true,
     value: {
@@ -235,8 +302,8 @@ export function parseCreateBody(
       year: year ?? null,
       description:
         typeof o.description === "string" ? o.description : undefined,
-      cover_image:
-        typeof o.cover_image === "string" ? o.cover_image : undefined,
+      cover_image: coverTrim || undefined,
+      gallery_urls,
       metadata,
     },
   };
@@ -244,6 +311,7 @@ export function parseCreateBody(
 
 /** フォーム初期値用: Building → MVP 入力 */
 export function buildingToMvpFormValues(building: Building) {
+  const extras = (building.gallery ?? []).filter(Boolean).slice(0, MVP_GALLERY_MAX_EXTRA);
   return {
     name: building.nameJa ?? building.name,
     name_en: building.nameJa ? building.name : "",
@@ -255,6 +323,7 @@ export function buildingToMvpFormValues(building: Building) {
       building.yearCompleted != null ? String(building.yearCompleted) : "",
     description: building.description ?? "",
     cover_image: building.coverImageUrl ?? "",
+    gallery_urls: extras,
     place_id: building.googlePlaceId ?? "",
   };
 }

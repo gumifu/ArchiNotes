@@ -162,6 +162,50 @@ function MapPanToFocus({ building }: { building: Building | null }) {
   return null;
 }
 
+/** Places 候補など、緯度経度だけパン（key が変わるたびに再実行） */
+function MapPanToLatLng({
+  target,
+}: {
+  target: { lat: number; lng: number; key: string } | null;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !target) return;
+    if (!Number.isFinite(target.lat) || !Number.isFinite(target.lng)) return;
+    map.panTo({ lat: target.lat, lng: target.lng });
+    map.setZoom(16);
+  }, [map, target?.key, target?.lat, target?.lng]);
+
+  return null;
+}
+
+function PendingPlaceMarker({
+  position,
+  title,
+}: {
+  position: { lat: number; lng: number };
+  title?: string;
+}) {
+  const theme = useTheme();
+  return (
+    <AdvancedMarker position={position} title={title}>
+      <div
+        className="flex h-12 w-12 items-center justify-center rounded-full border-4 shadow-lg"
+        style={{
+          borderColor: theme.palette.warning.main,
+          backgroundColor: theme.palette.warning.light,
+        }}
+      >
+        <MapPin
+          className="size-6"
+          style={{ color: theme.palette.warning.dark }}
+        />
+      </div>
+    </AdvancedMarker>
+  );
+}
+
 type BuildingMarkerProps = {
   building: Building;
   onRef: (index: number, marker: AdvancedMarkerElement | null) => void;
@@ -299,6 +343,14 @@ export type ArchitectureMapProps = {
   selectedBuilding?: Building | null;
   /** この建築へだけパンする（カルーセルスワイプでは親が更新しない） */
   panTargetBuilding?: Building | null;
+  /** Places 候補など、建築以外の位置へパン（key は placeId 等で一意に） */
+  panTargetLatLng?: { lat: number; lng: number; key: string } | null;
+  /** 未登録の登録候補（オレンジピン） */
+  pendingPlaceMarker?: {
+    lat: number;
+    lng: number;
+    title?: string;
+  } | null;
 };
 
 export function ArchitectureMap({
@@ -307,6 +359,8 @@ export function ArchitectureMap({
   fullscreen = false,
   selectedBuilding = null,
   panTargetBuilding = null,
+  panTargetLatLng = null,
+  pendingPlaceMarker = null,
 }: ArchitectureMapProps = {}) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
@@ -398,6 +452,7 @@ export function ArchitectureMap({
           <MapControlsLayout />
           <MapTypeControlPositionFix />
           <MapPanToFocus building={panTargetBuilding} />
+          <MapPanToLatLng target={panTargetLatLng} />
           {!loading && buildings.length > 0 && (
             <MapMarkers
               buildings={buildings}
@@ -405,6 +460,17 @@ export function ArchitectureMap({
               selectedBuildingId={selectedBuilding?.id ?? null}
             />
           )}
+          {pendingPlaceMarker &&
+            Number.isFinite(pendingPlaceMarker.lat) &&
+            Number.isFinite(pendingPlaceMarker.lng) && (
+              <PendingPlaceMarker
+                position={{
+                  lat: pendingPlaceMarker.lat,
+                  lng: pendingPlaceMarker.lng,
+                }}
+                title={pendingPlaceMarker.title}
+              />
+            )}
         </Map>
       </APIProvider>
       {error && (
