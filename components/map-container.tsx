@@ -1,7 +1,9 @@
 "use client";
 
+import type { BuildingSelectOptions } from "@/components/architecture-map";
 import { ArchitectureMap } from "@/components/architecture-map";
 import { BuildingDetailPanel } from "@/components/building-detail-panel";
+import { MapBottomBuildingCarousel } from "@/components/map-bottom-building-carousel";
 import { MapExplorerPanel } from "@/components/map-explorer-panel";
 import { MapSearchUiArea } from "@/components/map-search-ui-area";
 import { getLocalBuildings, getPublishedBuildings } from "@/lib/buildings";
@@ -17,19 +19,33 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useCallback, useEffect, useState } from "react";
 
 /**
- * デスクトップ: 地図全面 + 左上 fixed の検索 UI。
- * モバイル: 地図全画面 + メニューで一覧、ピン選択時は下部シート。
+ * 広い画面(lg以上): 左上 fixed の検索 UI + 下部カルーセル。
+ * lg 未満: 地図全画面 + 下部カルーセル + メニューで一覧、詳細はシート。
  */
 export function MapContainer() {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  /** SSR と初回クライアントで useMediaQuery がずれるとハイドレーション不一致になるため、マウント後だけコンパクト判定を使う */
+  const [layoutReady, setLayoutReady] = useState(false);
+  useEffect(() => {
+    setLayoutReady(true);
+  }, []);
+  const isMapCompactQuery = useMediaQuery(theme.breakpoints.down("lg"), {
+    noSsr: true,
+  });
+  const isMapCompact = layoutReady && isMapCompactQuery;
 
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(
     null,
   );
+  /** カルーセルスワイプでは更新しない。パンはこの参照が変わったときだけ */
+  const [panTargetBuilding, setPanTargetBuilding] = useState<Building | null>(
+    null,
+  );
   const [mobileListOpen, setMobileListOpen] = useState(false);
+  /** ピン／一覧／カードタップで true。カルーセルのみスワイプでは false のまま */
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const fetchBuildings = useCallback(async () => {
     const useFirestore = !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -53,22 +69,32 @@ export function MapContainer() {
   }, [fetchBuildings]);
 
   const handleBuildingSelect = useCallback(
-    (building: Building) => {
+    (building: Building, options?: BuildingSelectOptions) => {
       recordBuildingOpened(building.id);
       setSelectedBuilding(building);
-      if (isMobile) {
+      if (options?.panMap !== false) {
+        setPanTargetBuilding(building);
+      }
+      if (isMapCompact) {
         setMobileListOpen(false);
+        if (options?.openDetail !== false) {
+          setMobileDetailOpen(true);
+        } else {
+          setMobileDetailOpen(false);
+        }
       }
     },
-    [isMobile],
+    [isMapCompact],
   );
 
   const handleClearSelection = useCallback(() => {
     setSelectedBuilding(null);
+    setPanTargetBuilding(null);
+    setMobileDetailOpen(false);
   }, []);
 
   const handleCloseMobileDetail = useCallback(() => {
-    setSelectedBuilding(null);
+    setMobileDetailOpen(false);
   }, []);
 
   return (
@@ -89,7 +115,7 @@ export function MapContainer() {
           position: "relative",
         }}
       >
-        {!isMobile && (
+        {!isMapCompact && (
           <MapSearchUiArea
             buildings={buildings}
             selectedBuilding={selectedBuilding}
@@ -98,7 +124,7 @@ export function MapContainer() {
           />
         )}
 
-        {isMobile && (
+        {isMapCompact && (
           <IconButton
             aria-label="建築一覧を開く"
             onClick={() => setMobileListOpen(true)}
@@ -106,7 +132,7 @@ export function MapContainer() {
               position: "absolute",
               top: 12,
               left: 12,
-              zIndex: 2,
+              zIndex: (t) => t.zIndex.appBar + 1,
               bgcolor: "background.paper",
               boxShadow: 2,
               "&:hover": { bgcolor: "background.paper" },
@@ -121,10 +147,22 @@ export function MapContainer() {
           fullscreen
           buildingsProp={loading ? null : buildings}
           onBuildingSelect={handleBuildingSelect}
+          selectedBuilding={selectedBuilding}
+          panTargetBuilding={panTargetBuilding}
         />
+
+        {!loading && buildings.length > 0 && (
+          <MapBottomBuildingCarousel
+            buildings={buildings}
+            selectedBuilding={selectedBuilding}
+            onCardDetailTap={(b) =>
+              handleBuildingSelect(b, { openDetail: true })
+            }
+          />
+        )}
       </Box>
 
-      {isMobile && (
+      {isMapCompact && (
         <>
           <Drawer
             anchor="left"
@@ -142,13 +180,15 @@ export function MapContainer() {
             <MapExplorerPanel
               buildings={buildings}
               selectedBuilding={selectedBuilding}
-              onSelectBuilding={handleBuildingSelect}
+              onSelectBuilding={(b) =>
+                handleBuildingSelect(b, { openDetail: true })
+              }
             />
           </Drawer>
 
           <SwipeableDrawer
             anchor="bottom"
-            open={selectedBuilding != null}
+            open={mobileDetailOpen && selectedBuilding != null}
             onClose={handleCloseMobileDetail}
             onOpen={() => {}}
             disableSwipeToOpen

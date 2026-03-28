@@ -81,10 +81,27 @@
   }
 }
 
-/* Google Maps: 地図種類ドロップダウンを右寄せ（API の内部クラスは非保証） */
+/* Google Maps: 地図種類 — 右上 16px（JS で再適用。内部クラスは非保証） */
+.architecture-map-root .gm-style-mtc {
+  position: absolute !important;
+  right: 16px !important;
+  top: 16px !important;
+  left: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  transform: none !important;
+  z-index: 1100;
+}
+
 .architecture-map-root .gm-style-mtc,
 .architecture-map-root .gm-style-mtc-bbw {
   text-align: right;
+}
+
+.architecture-map-root .gm-style-mtc-bbw {
+  left: auto !important;
+  right: 0 !important;
+  transform: none !important;
 }
 
 .architecture-map-root .gm-style-mtc [role="menu"],

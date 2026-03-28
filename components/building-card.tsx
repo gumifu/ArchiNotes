@@ -1,6 +1,6 @@
 "use client";
 
-import { getImageUrl } from "@/lib/constants";
+import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
 import type { Building } from "@/types/building";
 
 type BuildingCardProps = {
@@ -9,6 +9,7 @@ type BuildingCardProps = {
 };
 
 export function BuildingCard({ building, className = "" }: BuildingCardProps) {
+  const { src, onError } = useBuildingCoverImageSrc(building);
   const yearLabel = building.yearCompleted ? `${building.yearCompleted}` : "—";
   const locationLabel = [building.city, building.country]
     .filter(Boolean)
@@ -22,12 +23,10 @@ export function BuildingCard({ building, className = "" }: BuildingCardProps) {
       <div className="bg-muted relative aspect-16/10 w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={getImageUrl(building.coverImageUrl)}
+          src={src}
           alt=""
           className="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = getImageUrl(null);
-          }}
+          onError={onError}
         />
       </div>
       <div className="flex flex-col gap-1 px-0 py-3">

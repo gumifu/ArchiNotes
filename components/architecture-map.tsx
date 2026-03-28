@@ -1,10 +1,12 @@
 "use client";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
 import { getLocalBuildings, getPublishedBuildings } from "@/lib/buildings";
-import { getImageUrl, MAP_DEFAULT_CENTER } from "@/lib/constants";
+import { MAP_DEFAULT_CENTER } from "@/lib/constants";
 import type { Building } from "@/types/building";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
+import { useTheme } from "@mui/material/styles";
 import {
   AdvancedMarker,
   APIProvider,
@@ -15,6 +17,9 @@ import {
 import { MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+/** 地図種類ボタンをマップ領域の右上（余白 16px）に固定 */
+const MAP_TYPE_CONTROL_INSET = 16;
 
 type AdvancedMarkerElement = NonNullable<AdvancedMarkerRef>;
 
@@ -28,7 +33,7 @@ const DEFAULT_ZOOM = 12;
 
 /**
  * デフォルト UI は位置がバラけるので disableDefaultUI から再構成。
- * 地図種類は上辺の右端（BLOCK_START_INLINE_END）で右寄せ。ズーム等は右下（INLINE_END_BLOCK_END）。
+ * 地図種類は MapTypeControlPositionFix で右上 16px に固定。ズーム等は右下（INLINE_END_BLOCK_END）。
  * idle 後に再適用してレイアウトを確定させる。
  */
 function MapControlsLayout() {
@@ -76,11 +81,92 @@ function MapControlsLayout() {
   return null;
 }
 
+/**
+ * 地図種類（Map）をマップ div 内で右上に固定し、ドロップダウンはボタン右端揃え。
+ * Google が idle / DOM 更新で位置を戻すため MutationObserver で再適用する。
+ */
+function MapTypeControlPositionFix() {
+  const map = useMap();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const apply = useCallback(() => {
+    if (!map) return;
+    const div = map.getDiv();
+    if (!div) return;
+    const mtc = div.querySelector<HTMLElement>(".gm-style-mtc");
+    if (!mtc) return;
+    const inset = `${MAP_TYPE_CONTROL_INSET}px`;
+    mtc.style.setProperty("position", "absolute", "important");
+    mtc.style.setProperty("right", inset, "important");
+    mtc.style.setProperty("top", inset, "important");
+    mtc.style.setProperty("left", "auto", "important");
+    mtc.style.setProperty("bottom", "auto", "important");
+    mtc.style.setProperty("margin", "0", "important");
+    mtc.style.setProperty("transform", "none", "important");
+    mtc.style.zIndex = "1100";
+    const menu = div.querySelector<HTMLElement>(".gm-style-mtc-bbw");
+    if (menu) {
+      menu.style.setProperty("left", "auto", "important");
+      menu.style.setProperty("right", "0", "important");
+      menu.style.setProperty("transform", "none", "important");
+    }
+  }, [map]);
+
+  useEffect(() => {
+    if (!map) return;
+    const div = map.getDiv();
+    if (!div) return;
+
+    apply();
+    const idleOnce = google.maps.event.addListenerOnce(map, "idle", apply);
+
+    const schedule = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null;
+        apply();
+      }, 80);
+    };
+
+    const mo = new MutationObserver(schedule);
+    mo.observe(div, { childList: true, subtree: true });
+
+    const ro = new ResizeObserver(schedule);
+    ro.observe(div);
+
+    return () => {
+      google.maps.event.removeListener(idleOnce);
+      mo.disconnect();
+      ro.disconnect();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [map, apply]);
+
+  return null;
+}
+
+/** panTarget が変わったときだけパン（カルーセルスワイプでは panTarget を更新しない） */
+function MapPanToFocus({ building }: { building: Building | null }) {
+  const map = useMap();
+  const id = building?.id ?? null;
+  const lat = building?.location.lat;
+  const lng = building?.location.lng;
+
+  useEffect(() => {
+    if (!map || id == null || lat == null || lng == null) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    map.panTo({ lat, lng });
+  }, [map, id, lat, lng]);
+
+  return null;
+}
+
 type BuildingMarkerProps = {
   building: Building;
   onRef: (index: number, marker: AdvancedMarkerElement | null) => void;
   index: number;
   onSelect: (building: Building) => void;
+  selected: boolean;
 };
 
 function BuildingMarker({
@@ -88,7 +174,11 @@ function BuildingMarker({
   onRef,
   index,
   onSelect,
+  selected,
 }: BuildingMarkerProps) {
+  const { src, onError } = useBuildingCoverImageSrc(building);
+  const theme = useTheme();
+  const primary = theme.palette.primary.main;
   return (
     <AdvancedMarker
       ref={(m) => onRef(index, m)}
@@ -97,23 +187,25 @@ function BuildingMarker({
       title={building.name}
     >
       <div
-        className="overflow-hidden rounded-full border-2 border-white shadow-md transition-transform hover:scale-110"
+        className="overflow-hidden rounded-full border-2 shadow-md transition-transform hover:scale-110"
         style={{
           width: MARKER_SIZE,
           height: MARKER_SIZE,
           cursor: "pointer",
+          borderColor: selected ? primary : "#ffffff",
+          boxShadow: selected
+            ? `0 0 0 3px ${primary}, 0 2px 8px rgba(0,0,0,0.25)`
+            : undefined,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={getImageUrl(building.coverImageUrl)}
+          src={src}
           alt=""
           width={MARKER_SIZE}
           height={MARKER_SIZE}
           className="block h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = getImageUrl(null);
-          }}
+          onError={onError}
         />
       </div>
     </AdvancedMarker>
@@ -123,9 +215,11 @@ function BuildingMarker({
 function MapMarkers({
   buildings,
   onSelect,
+  selectedBuildingId,
 }: {
   buildings: Building[];
   onSelect: (building: Building) => void;
+  selectedBuildingId: string | null;
 }) {
   const map = useMap();
   const markerRefs = useRef<(AdvancedMarkerElement | null)[]>([]);
@@ -176,25 +270,42 @@ function MapMarkers({
           index={i}
           onRef={setMarkerRef}
           onSelect={onSelect}
+          selected={selectedBuildingId === b.id}
         />
       ))}
     </>
   );
 }
 
+/** モバイル: カルーセルは openDetail: false、ピンは true で詳細シートを開く */
+export type BuildingSelectOptions = {
+  openDetail?: boolean;
+  /** false のとき地図をパンしない（カルーセルのみスワイプなど） */
+  panMap?: boolean;
+};
+
 export type ArchitectureMapProps = {
   /** When provided, marker tap opens bottom sheet instead of navigating. */
-  onBuildingSelect?: (building: Building) => void;
+  onBuildingSelect?: (
+    building: Building,
+    options?: BuildingSelectOptions,
+  ) => void;
   /** Use buildings from parent (e.g. MapContainer) instead of fetching. */
   buildingsProp?: Building[] | null;
   /** If true, map fills the viewport (for map-first layout). */
   fullscreen?: boolean;
+  /** 選択中の建築（マーカー強調） */
+  selectedBuilding?: Building | null;
+  /** この建築へだけパンする（カルーセルスワイプでは親が更新しない） */
+  panTargetBuilding?: Building | null;
 };
 
 export function ArchitectureMap({
   onBuildingSelect,
   buildingsProp = null,
   fullscreen = false,
+  selectedBuilding = null,
+  panTargetBuilding = null,
 }: ArchitectureMapProps = {}) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const router = useRouter();
@@ -233,7 +344,7 @@ export function ArchitectureMap({
   const handleSelect = useCallback(
     (building: Building) => {
       if (onBuildingSelect) {
-        onBuildingSelect(building);
+        onBuildingSelect(building, { openDetail: true, panMap: true });
       } else {
         router.push(`/buildings/${building.slug || building.id}`);
       }
@@ -283,8 +394,14 @@ export function ArchitectureMap({
           style={{ width: "100%", height: "100%" }}
         >
           <MapControlsLayout />
+          <MapTypeControlPositionFix />
+          <MapPanToFocus building={panTargetBuilding} />
           {!loading && buildings.length > 0 && (
-            <MapMarkers buildings={buildings} onSelect={handleSelect} />
+            <MapMarkers
+              buildings={buildings}
+              onSelect={handleSelect}
+              selectedBuildingId={selectedBuilding?.id ?? null}
+            />
           )}
         </Map>
       </APIProvider>

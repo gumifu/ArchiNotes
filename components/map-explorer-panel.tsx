@@ -1,6 +1,6 @@
 "use client";
 
-import { getImageUrl } from "@/lib/constants";
+import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
 import type { Building } from "@/types/building";
 import Search from "@mui/icons-material/Search";
 import Avatar from "@mui/material/Avatar";
@@ -27,6 +27,21 @@ export type MapExplorerPanelProps = {
 
 function normalize(s: string) {
   return s.trim().toLowerCase();
+}
+
+function BuildingExplorerAvatar({ building }: { building: Building }) {
+  const { src, onError } = useBuildingCoverImageSrc(building);
+  return (
+    <Avatar
+      variant="rounded"
+      sx={{ width: 48, height: 48 }}
+      src={src}
+      alt=""
+      imgProps={{
+        onError,
+      }}
+    />
+  );
 }
 
 export function MapExplorerPanel({
@@ -104,17 +119,7 @@ export function MapExplorerPanel({
                 sx={{ py: 1.5, px: 2 }}
               >
                 <ListItemAvatar sx={{ minWidth: 56 }}>
-                  <Avatar
-                    variant="rounded"
-                    sx={{ width: 48, height: 48 }}
-                    src={getImageUrl(b.coverImageUrl)}
-                    alt=""
-                    imgProps={{
-                      onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
-                        e.currentTarget.src = getImageUrl(null);
-                      },
-                    }}
-                  />
+                  <BuildingExplorerAvatar building={b} />
                 </ListItemAvatar>
                 <ListItemText
                   primary={b.nameJa ?? b.name}

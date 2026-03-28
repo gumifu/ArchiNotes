@@ -1,4 +1,5 @@
 import { BuildingDetailMap } from "@/components/building-detail-map";
+import { BuildingHeroImage } from "@/components/building-hero-image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getBuildingById, getBuildingBySlug } from "@/lib/buildings";
@@ -81,12 +82,9 @@ export default async function BuildingDetailPage({ params }: Props) {
       <main className="pb-8">
         {/* Hero Image */}
         <div className="bg-muted relative aspect-[4/3] w-full">
-          <Image
-            src={getImageUrl(building.coverImageUrl)}
-            alt={building.name}
-            fill
+          <BuildingHeroImage
+            building={building}
             className="object-cover"
-            sizes="100vw"
             priority
           />
         </div>

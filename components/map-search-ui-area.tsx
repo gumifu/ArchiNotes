@@ -2,7 +2,7 @@
 
 import { BuildingDetailPanel } from "@/components/building-detail-panel";
 import { MapSearchBar } from "@/components/map-search-bar";
-import { getImageUrl } from "@/lib/constants";
+import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
 import {
   getFavoriteBuildingIds,
   getRecentBuildingIds,
@@ -35,6 +35,26 @@ function normalize(s: string) {
   return s.trim().toLowerCase();
 }
 
+function BuildingSearchAvatar({ building }: { building: Building }) {
+  const { src, onError } = useBuildingCoverImageSrc(building);
+  return (
+    <Avatar
+      variant="circular"
+      sx={{
+        width: 40,
+        height: 40,
+        bgcolor: "grey.300",
+        color: "grey.600",
+      }}
+      src={src}
+      alt=""
+      imgProps={{
+        onError,
+      }}
+    />
+  );
+}
+
 function BuildingListItems({
   items,
   onSelect,
@@ -55,22 +75,7 @@ function BuildingListItems({
           sx={{ py: 1.5, px: 2 }}
         >
           <Box sx={{ mr: 1.5, mt: 0.25 }}>
-            <Avatar
-              variant="circular"
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: "grey.300",
-                color: "grey.600",
-              }}
-              src={getImageUrl(b.coverImageUrl)}
-              alt=""
-              imgProps={{
-                onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
-                  e.currentTarget.src = getImageUrl(null);
-                },
-              }}
-            />
+            <BuildingSearchAvatar building={b} />
           </Box>
           <ListItemText
             primary={b.nameJa ?? b.name}
@@ -181,10 +186,6 @@ export function MapSearchUiArea({
     );
   }, [buildings, searchQuery, savedOnly, userDataTick]);
 
-  const displayValue = selectedBuilding
-    ? (selectedBuilding.nameJa ?? selectedBuilding.name)
-    : searchQuery;
-
   const openPanel = useCallback(() => setPanelOpen(true), []);
 
   const closePanel = useCallback(() => {
@@ -227,11 +228,14 @@ export function MapSearchUiArea({
     [searchQuery, filtered, onSelectBuilding],
   );
 
+  /** 検索文字を優先してクリア。空なら選択のみ解除（地図フォーカス変更で検索文は変えない） */
   const handleClearBar = () => {
+    if (searchQuery.trim()) {
+      setSearchQuery("");
+      return;
+    }
     if (selectedBuilding) {
       onClearSelection();
-    } else {
-      setSearchQuery("");
     }
   };
 
@@ -265,16 +269,15 @@ export function MapSearchUiArea({
       >
         <MapSearchBar
           variant="cardTop"
-          value={displayValue}
+          value={searchQuery}
           placeholder="ArchiNotes を検索"
-          readOnly={!!selectedBuilding}
           onChange={(v) => {
             setSearchQuery(v);
             setPanelOpen(true);
           }}
           onFocus={openPanel}
-          onKeyDown={selectedBuilding ? undefined : handleSearchKeyDown}
-          showClear={!!selectedBuilding || !!searchQuery.trim()}
+          onKeyDown={handleSearchKeyDown}
+          showClear={!!searchQuery.trim() || !!selectedBuilding}
           onClear={handleClearBar}
           hideDirections
         />

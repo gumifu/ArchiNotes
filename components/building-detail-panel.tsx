@@ -1,5 +1,6 @@
 "use client";
 
+import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
 import { getImageUrl } from "@/lib/constants";
 import {
   isFavoriteBuildingId,
@@ -54,6 +55,8 @@ export function BuildingDetailPanel({
   hideBackButton = false,
   embedVariant = "default",
 }: BuildingDetailPanelProps) {
+  const { src: coverSrc, onError: onCoverError } =
+    useBuildingCoverImageSrc(building);
   const title = building.nameJa ?? building.name;
   const subtitle =
     building.nameJa && building.name !== building.nameJa ? building.name : null;
@@ -90,14 +93,12 @@ export function BuildingDetailPanel({
 
   const galleryUrls = useMemo(() => {
     const urls: string[] = [];
-    const cover = getImageUrl(building.coverImageUrl);
-    urls.push(cover);
     for (const u of building.gallery ?? []) {
       const resolved = getImageUrl(u);
       if (!urls.includes(resolved)) urls.push(resolved);
     }
     return urls.slice(0, 12);
-  }, [building.coverImageUrl, building.gallery]);
+  }, [building.gallery]);
 
   const handleDirections = useCallback(() => {
     window.open(buildDirectionsUrl(building), "_blank", "noopener,noreferrer");
@@ -199,7 +200,7 @@ export function BuildingDetailPanel({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={getImageUrl(building.coverImageUrl)}
+          src={coverSrc}
           alt=""
           style={{
             width: "100%",
@@ -207,9 +208,7 @@ export function BuildingDetailPanel({
             objectFit: "cover",
             display: "block",
           }}
-          onError={(e) => {
-            e.currentTarget.src = getImageUrl(null);
-          }}
+          onError={onCoverError}
         />
       </Box>
 

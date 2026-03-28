@@ -15,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="bg-background text-foreground min-h-screen antialiased">
+      <body
+        className="bg-background text-foreground min-h-screen antialiased"
+        suppressHydrationWarning
+      >
         <ThemeRegistry>{children}</ThemeRegistry>
       </body>
     </html>
