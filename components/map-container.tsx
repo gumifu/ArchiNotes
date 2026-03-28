@@ -6,17 +6,20 @@ import { BuildingDetailPanel } from "@/components/building-detail-panel";
 import { MapBottomBuildingCarousel } from "@/components/map-bottom-building-carousel";
 import { MapExplorerPanel } from "@/components/map-explorer-panel";
 import { MapSearchUiArea } from "@/components/map-search-ui-area";
-import { getLocalBuildings, getPublishedBuildings } from "@/lib/buildings";
+import { getBuildingsForMap, getLocalBuildings } from "@/lib/buildings";
+import { BUILDING_OVERRIDE_EVENT, mergeBuildingWithOverrides } from "@/lib/building-local-storage";
 import { recordBuildingOpened } from "@/lib/map-user-data";
 import type { Building } from "@/types/building";
 import Menu from "@mui/icons-material/Menu";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
  * 広い画面(lg以上): 左上 fixed の検索 UI + 下部カルーセル。
@@ -46,6 +49,28 @@ export function MapContainer() {
   const [mobileListOpen, setMobileListOpen] = useState(false);
   /** ピン／一覧／カードタップで true。カルーセルのみスワイプでは false のまま */
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [overrideEpoch, setOverrideEpoch] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setOverrideEpoch((n) => n + 1);
+    window.addEventListener(BUILDING_OVERRIDE_EVENT, bump);
+    window.addEventListener("storage", bump);
+    return () => {
+      window.removeEventListener(BUILDING_OVERRIDE_EVENT, bump);
+      window.removeEventListener("storage", bump);
+    };
+  }, []);
+
+  const mergedBuildings = useMemo(
+    () => buildings.map((b) => mergeBuildingWithOverrides(b)),
+    [buildings, overrideEpoch],
+  );
+
+  useEffect(() => {
+    setSelectedBuilding((prev) =>
+      prev ? mergeBuildingWithOverrides(prev) : null,
+    );
+  }, [overrideEpoch]);
 
   const fetchBuildings = useCallback(async () => {
     const useFirestore = !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -55,7 +80,7 @@ export function MapContainer() {
       return;
     }
     try {
-      const list = await getPublishedBuildings();
+      const list = await getBuildingsForMap();
       setBuildings(list);
     } catch {
       setBuildings(getLocalBuildings());
@@ -117,7 +142,7 @@ export function MapContainer() {
       >
         {!isMapCompact && (
           <MapSearchUiArea
-            buildings={buildings}
+            buildings={mergedBuildings}
             selectedBuilding={selectedBuilding}
             onSelectBuilding={handleBuildingSelect}
             onClearSelection={handleClearSelection}
@@ -143,17 +168,35 @@ export function MapContainer() {
           </IconButton>
         )}
 
+        <Button
+          component={Link}
+          href="/buildings/new"
+          variant="outlined"
+          size="small"
+          sx={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            zIndex: (t) => t.zIndex.appBar + 1,
+            bgcolor: "background.paper",
+            boxShadow: 2,
+            "&:hover": { bgcolor: "background.paper" },
+          }}
+        >
+          建築を登録
+        </Button>
+
         <ArchitectureMap
           fullscreen
-          buildingsProp={loading ? null : buildings}
+          buildingsProp={loading ? null : mergedBuildings}
           onBuildingSelect={handleBuildingSelect}
           selectedBuilding={selectedBuilding}
           panTargetBuilding={panTargetBuilding}
         />
 
-        {!loading && buildings.length > 0 && (
+        {!loading && mergedBuildings.length > 0 && (
           <MapBottomBuildingCarousel
-            buildings={buildings}
+            buildings={mergedBuildings}
             selectedBuilding={selectedBuilding}
             onCardDetailTap={(b) =>
               handleBuildingSelect(b, { openDetail: true })
@@ -178,7 +221,7 @@ export function MapContainer() {
             }}
           >
             <MapExplorerPanel
-              buildings={buildings}
+              buildings={mergedBuildings}
               selectedBuilding={selectedBuilding}
               onSelectBuilding={(b) =>
                 handleBuildingSelect(b, { openDetail: true })
@@ -198,6 +241,10 @@ export function MapContainer() {
                   borderTopLeftRadius: 12,
                   borderTopRightRadius: 12,
                   maxHeight: "min(85vh, 640px)",
+                  height: "min(85vh, 640px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
                 },
               },
             }}
@@ -206,7 +253,6 @@ export function MapContainer() {
               <BuildingDetailPanel
                 building={selectedBuilding}
                 onClose={handleCloseMobileDetail}
-                showPuller
               />
             )}
           </SwipeableDrawer>

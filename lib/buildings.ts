@@ -1,10 +1,9 @@
 import buildingsData from "@/data/buildings.json";
+import { firestoreDataToBuilding } from "@/lib/building-mvp";
 import type { Building } from "@/types/building";
 import {
   collection,
   getDocs,
-  query,
-  where,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
@@ -35,63 +34,15 @@ export function getBuildingBySlug(slug: string): Building | null {
   return found ?? null;
 }
 
-function toDateString(value: unknown): string {
-  if (value && typeof value === "object" && "toDate" in value) {
-    const d = (value as { toDate: () => Date }).toDate();
-    return d.toISOString();
-  }
-  if (typeof value === "string") return value;
-  return new Date().toISOString();
-}
-
 function docToBuilding(doc: QueryDocumentSnapshot<DocumentData>): Building {
-  const data = doc.data();
-  return {
-    id: doc.id,
-    slug: data.slug ?? "",
-    name: data.name ?? "",
-    nameJa: data.nameJa,
-    architectId: data.architectId ?? "",
-    architectName: data.architectName ?? data.architect ?? "",
-    yearCompleted: data.yearCompleted ?? data.year ?? null,
-    status: data.status,
-    country: data.country ?? "",
-    city: data.city ?? "",
-    ward: data.ward,
-    district: data.district,
-    address: data.address,
-    location: data.location ?? { lat: 0, lng: 0 },
-    geoPointSource: data.geoPointSource,
-    coverImageUrl: data.coverImageUrl,
-    gallery: data.gallery,
-    buildingType: data.buildingType,
-    style: data.style,
-    structure: data.structure,
-    materials: data.materials,
-    floorsAboveGround: data.floorsAboveGround ?? null,
-    floorsBelowGround: data.floorsBelowGround ?? null,
-    siteAreaSqm: data.siteAreaSqm ?? null,
-    floorAreaSqm: data.floorAreaSqm ?? null,
-    description: data.description,
-    shortDescription: data.shortDescription,
-    historicalContext: data.historicalContext,
-    designHighlights: data.designHighlights,
-    experienceTags: data.experienceTags,
-    styleTags: data.styleTags,
-    visitTips: data.visitTips,
-    nearestStation: data.nearestStation,
-    officialWebsite: data.officialWebsite,
-    googleMapsUrl: data.googleMapsUrl,
-    published: data.published ?? false,
-    featured: data.featured ?? false,
-    createdAt: toDateString(data.createdAt),
-    updatedAt: toDateString(data.updatedAt),
-  };
+  return firestoreDataToBuilding(doc.id, doc.data());
 }
 
-export async function getPublishedBuildings(): Promise<Building[]> {
+/**
+ * マップ用: Firestore `buildings` コレクションを全件取得（MVP）。
+ */
+export async function getBuildingsForMap(): Promise<Building[]> {
   const buildingsRef = collection(db, "buildings");
-  const q = query(buildingsRef, where("published", "==", true));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(buildingsRef);
   return snapshot.docs.map(docToBuilding);
 }

@@ -1,3 +1,7 @@
+/**
+ * Firestore クライアント。Google Places / Maps のレスポンスをマスタとして永続化する前に
+ * docs/google-maps-platform-data-policy.md を確認すること。
+ */
 import { type FirebaseOptions, getApps, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 

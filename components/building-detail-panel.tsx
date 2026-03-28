@@ -1,6 +1,8 @@
 "use client";
 
+import { BuildingGooglePlaceInfo } from "@/components/building-google-place-info";
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
+import { trackBuildingStat } from "@/lib/building-stats";
 import { getImageUrl } from "@/lib/constants";
 import {
   isFavoriteBuildingId,
@@ -33,8 +35,6 @@ export type BuildingDetailPanelProps = {
   onBack?: () => void;
   /** 閉じる（モバイル下部ドロワー用） */
   onClose?: () => void;
-  /** 上部にドラッグ用の取っ手を表示（モバイル） */
-  showPuller?: boolean;
   /** 親のツールバーで戻る場合は非表示 */
   hideBackButton?: boolean;
   /** 地図上の検索パネル内＝Google マップの場所カード風に詰める */
@@ -51,12 +51,14 @@ export function BuildingDetailPanel({
   building,
   onBack,
   onClose,
-  showPuller = false,
   hideBackButton = false,
   embedVariant = "default",
 }: BuildingDetailPanelProps) {
-  const { src: coverSrc, onError: onCoverError } =
-    useBuildingCoverImageSrc(building);
+  const {
+    src: coverSrc,
+    onError: onCoverError,
+    placesPhotoUrls,
+  } = useBuildingCoverImageSrc(building);
   const title = building.nameJa ?? building.name;
   const subtitle =
     building.nameJa && building.name !== building.nameJa ? building.name : null;
@@ -97,8 +99,11 @@ export function BuildingDetailPanel({
       const resolved = getImageUrl(u);
       if (!urls.includes(resolved)) urls.push(resolved);
     }
-    return urls.slice(0, 12);
-  }, [building.gallery]);
+    for (const u of placesPhotoUrls) {
+      if (!urls.includes(u)) urls.push(u);
+    }
+    return urls.slice(0, 20);
+  }, [building.gallery, placesPhotoUrls]);
 
   const handleDirections = useCallback(() => {
     window.open(buildDirectionsUrl(building), "_blank", "noopener,noreferrer");
@@ -130,21 +135,29 @@ export function BuildingDetailPanel({
   const handleFavorite = useCallback(() => {
     const next = toggleFavoriteBuildingId(building.id);
     setFav(next);
+    if (next) {
+      trackBuildingStat(building.id, "save");
+    }
   }, [building.id]);
 
   const showBackRow = onBack && !hideBackButton;
   const isMapPlace = embedVariant === "mapPlace";
+
+  const hasToolbar = showBackRow || onClose;
 
   return (
     <Box
       sx={{
         display: "flex",
         flexDirection: "column",
+        height: "100%",
+        maxHeight: "100%",
         minHeight: 0,
+        overflow: "hidden",
         ...(isMapPlace && { bgcolor: "background.paper" }),
       }}
     >
-      {(showBackRow || onClose) && (
+      {hasToolbar && (
         <Stack
           direction="row"
           alignItems="center"
@@ -155,6 +168,8 @@ export function BuildingDetailPanel({
             borderBottom: 1,
             borderColor: "divider",
             flexShrink: 0,
+            bgcolor: "background.paper",
+            zIndex: 1,
           }}
         >
           <Box>
@@ -174,30 +189,23 @@ export function BuildingDetailPanel({
         </Stack>
       )}
 
-      {showPuller && (
-        <Box
-          sx={{
-            width: 40,
-            height: 4,
-            borderRadius: 999,
-            bgcolor: "grey.300",
-            mx: "auto",
-            mt: 1,
-            mb: 1,
-            flexShrink: 0,
-          }}
-        />
-      )}
-
       <Box
         sx={{
-          position: "relative",
-          aspectRatio: isMapPlace ? "16 / 10" : "16 / 9",
-          width: "100%",
-          bgcolor: "grey.200",
-          flexShrink: 0,
+          flex: 1,
+          minHeight: 0,
+          overflow: "auto",
+          WebkitOverflowScrolling: "touch",
         }}
       >
+        <Box
+          sx={{
+            position: "relative",
+            height: isMapPlace ? 160 : 200,
+            width: "100%",
+            bgcolor: "grey.200",
+            flexShrink: 0,
+          }}
+        >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={coverSrc}
@@ -216,8 +224,6 @@ export function BuildingDetailPanel({
         sx={{
           px: isMapPlace ? 2.5 : 2,
           py: isMapPlace ? 2.5 : 2,
-          flex: 1,
-          minHeight: 0,
         }}
       >
         <Typography
@@ -303,6 +309,19 @@ export function BuildingDetailPanel({
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             最寄り: {building.nearestStation}
           </Typography>
+        )}
+
+        {building.googlePlaceId && (
+          <Box sx={{ mb: 2 }}>
+            <Typography
+              variant="h6"
+              component="h3"
+              sx={{ mb: 1, fontSize: "1.1rem" }}
+            >
+              Google Places
+            </Typography>
+            <BuildingGooglePlaceInfo building={building} />
+          </Box>
         )}
 
         {summaryText ? (
@@ -405,6 +424,7 @@ export function BuildingDetailPanel({
         >
           建築の全情報を見る
         </Button>
+      </Box>
       </Box>
     </Box>
   );

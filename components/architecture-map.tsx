@@ -2,7 +2,8 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
-import { getLocalBuildings, getPublishedBuildings } from "@/lib/buildings";
+import { getBuildingsForMap, getLocalBuildings } from "@/lib/buildings";
+import { trackBuildingStat } from "@/lib/building-stats";
 import { MAP_DEFAULT_CENTER } from "@/lib/constants";
 import type { Building } from "@/types/building";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
@@ -325,7 +326,7 @@ export function ArchitectureMap({
     }
     try {
       setError(null);
-      const list = await getPublishedBuildings();
+      const list = await getBuildingsForMap();
       setBuildingsState(list);
     } catch {
       setBuildingsState(getLocalBuildings());
@@ -343,6 +344,7 @@ export function ArchitectureMap({
 
   const handleSelect = useCallback(
     (building: Building) => {
+      trackBuildingStat(building.id, "pin_click");
       if (onBuildingSelect) {
         onBuildingSelect(building, { openDetail: true, panMap: true });
       } else {

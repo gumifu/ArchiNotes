@@ -1,0 +1,260 @@
+import type { Building } from "@/types/building";
+import type { DocumentData } from "firebase/firestore";
+
+export type BuildingMvpCreateBody = {
+  name: string;
+  name_en?: string;
+  lat: number;
+  lng: number;
+  address: string;
+  place_id?: string;
+  architect_name?: string;
+  year?: number | null;
+  description?: string;
+  cover_image?: string;
+  metadata?: Record<string, unknown>;
+};
+
+function toDateString(value: unknown): string {
+  if (value && typeof value === "object" && "toDate" in value) {
+    const d = (value as { toDate: () => Date }).toDate();
+    return d.toISOString();
+  }
+  if (typeof value === "string") return value;
+  return new Date().toISOString();
+}
+
+/**
+ * Firestore `buildings` のドキュメントを `Building` に変換する。
+ * MVP フィールド（name_en, lat/lng, architect_name 等）と既存 camelCase ドキュメントの両方に対応。
+ */
+export function firestoreDataToBuilding(id: string, data: DocumentData): Building {
+  const nameEnRaw =
+    typeof data.name_en === "string"
+      ? data.name_en.trim()
+      : typeof data.nameEn === "string"
+        ? data.nameEn.trim()
+        : "";
+  const rawName = typeof data.name === "string" ? data.name : "";
+
+  let name: string;
+  let nameJa: string | undefined;
+  if (nameEnRaw) {
+    name = nameEnRaw;
+    nameJa = rawName || undefined;
+  } else {
+    name = rawName;
+    nameJa = typeof data.nameJa === "string" ? data.nameJa : undefined;
+  }
+
+  let location: { lat: number; lng: number };
+  if (
+    typeof data.lat === "number" &&
+    typeof data.lng === "number" &&
+    Number.isFinite(data.lat) &&
+    Number.isFinite(data.lng)
+  ) {
+    location = { lat: data.lat, lng: data.lng };
+  } else if (
+    data.location &&
+    typeof data.location === "object" &&
+    typeof (data.location as { lat?: number }).lat === "number" &&
+    typeof (data.location as { lng?: number }).lng === "number"
+  ) {
+    location = {
+      lat: (data.location as { lat: number }).lat,
+      lng: (data.location as { lng: number }).lng,
+    };
+  } else {
+    location = { lat: 0, lng: 0 };
+  }
+
+  const architectName =
+    typeof data.architect_name === "string"
+      ? data.architect_name
+      : typeof data.architectName === "string"
+        ? data.architectName
+        : typeof data.architect === "string"
+          ? data.architect
+          : "";
+
+  const googlePlaceId =
+    typeof data.place_id === "string"
+      ? data.place_id
+      : typeof data.googlePlaceId === "string"
+        ? data.googlePlaceId
+        : undefined;
+
+  const coverImageUrl =
+    typeof data.cover_image === "string"
+      ? data.cover_image
+      : typeof data.coverImageUrl === "string"
+        ? data.coverImageUrl
+        : undefined;
+
+  const yearCompleted =
+    typeof data.year === "number"
+      ? data.year
+      : typeof data.yearCompleted === "number"
+        ? data.yearCompleted
+        : null;
+
+  const metadata =
+    data.metadata &&
+    typeof data.metadata === "object" &&
+    !Array.isArray(data.metadata)
+      ? (data.metadata as Record<string, unknown>)
+      : undefined;
+
+  return {
+    id,
+    slug: typeof data.slug === "string" && data.slug ? data.slug : id,
+    name,
+    nameJa,
+    architectId: typeof data.architectId === "string" ? data.architectId : "",
+    architectName,
+    yearCompleted,
+    status: data.status,
+    country: typeof data.country === "string" ? data.country : "",
+    city: typeof data.city === "string" ? data.city : "",
+    ward: data.ward,
+    district: data.district,
+    address: data.address,
+    location,
+    geoPointSource: data.geoPointSource,
+    coverImageUrl,
+    gallery: data.gallery,
+    buildingType: data.buildingType,
+    style: data.style,
+    structure: data.structure,
+    materials: data.materials,
+    floorsAboveGround: data.floorsAboveGround ?? null,
+    floorsBelowGround: data.floorsBelowGround ?? null,
+    siteAreaSqm: data.siteAreaSqm ?? null,
+    floorAreaSqm: data.floorAreaSqm ?? null,
+    description: data.description,
+    shortDescription: data.shortDescription,
+    historicalContext: data.historicalContext,
+    designHighlights: data.designHighlights,
+    experienceTags: data.experienceTags,
+    styleTags: data.styleTags,
+    visitTips: data.visitTips,
+    nearestStation: data.nearestStation,
+    officialWebsite: data.officialWebsite,
+    googleMapsUrl: data.googleMapsUrl,
+    googlePlaceId,
+    placeInfoVerifiedAt:
+      typeof data.placeInfoVerifiedAt === "string"
+        ? data.placeInfoVerifiedAt
+        : undefined,
+    placeInfoVerificationSource:
+      typeof data.placeInfoVerificationSource === "string"
+        ? data.placeInfoVerificationSource
+        : undefined,
+    viewCount: data.viewCount ?? 0,
+    pinClickCount: data.pinClickCount ?? 0,
+    saveCount: data.saveCount ?? 0,
+    journalCount: data.journalCount ?? 0,
+    searchHitCount: data.searchHitCount ?? 0,
+    popularityScore: data.popularityScore ?? 0,
+    published: data.published ?? false,
+    featured: Boolean(data.featured),
+    createdAt: toDateString(data.created_at ?? data.createdAt),
+    updatedAt: toDateString(data.updated_at ?? data.updatedAt),
+    metadata,
+  };
+}
+
+export function buildFirestoreWritePayload(
+  body: BuildingMvpCreateBody,
+): Record<string, unknown> {
+  const description = body.description?.trim() ?? "";
+  return {
+    name: body.name.trim(),
+    name_en: body.name_en?.trim() || null,
+    lat: body.lat,
+    lng: body.lng,
+    location: { lat: body.lat, lng: body.lng },
+    address: body.address.trim(),
+    place_id: body.place_id?.trim() || null,
+    architect_name: body.architect_name?.trim() || null,
+    year: body.year ?? null,
+    description,
+    cover_image: body.cover_image?.trim() || null,
+    metadata: body.metadata ?? null,
+    published: true,
+  };
+}
+
+export function parseCreateBody(
+  json: unknown,
+):
+  | { ok: true; value: BuildingMvpCreateBody }
+  | { ok: false; error: string } {
+  if (!json || typeof json !== "object") {
+    return { ok: false, error: "Invalid JSON" };
+  }
+  const o = json as Record<string, unknown>;
+  const name = typeof o.name === "string" ? o.name.trim() : "";
+  if (!name) return { ok: false, error: "name は必須です" };
+
+  const lat = typeof o.lat === "number" ? o.lat : Number(o.lat);
+  const lng = typeof o.lng === "number" ? o.lng : Number(o.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { ok: false, error: "lat / lng が不正です" };
+  }
+
+  const address = typeof o.address === "string" ? o.address.trim() : "";
+
+  let year: number | null | undefined;
+  if (o.year !== undefined && o.year !== null && o.year !== "") {
+    const y = typeof o.year === "number" ? o.year : Number(o.year);
+    if (!Number.isFinite(y)) return { ok: false, error: "year が不正です" };
+    year = y;
+  }
+
+  let metadata: Record<string, unknown> | undefined;
+  if (o.metadata !== undefined && o.metadata !== null) {
+    if (typeof o.metadata !== "object" || Array.isArray(o.metadata)) {
+      return { ok: false, error: "metadata はオブジェクトにしてください" };
+    }
+    metadata = o.metadata as Record<string, unknown>;
+  }
+
+  return {
+    ok: true,
+    value: {
+      name,
+      name_en: typeof o.name_en === "string" ? o.name_en : undefined,
+      lat,
+      lng,
+      address,
+      place_id: typeof o.place_id === "string" ? o.place_id : undefined,
+      architect_name:
+        typeof o.architect_name === "string" ? o.architect_name : undefined,
+      year: year ?? null,
+      description:
+        typeof o.description === "string" ? o.description : undefined,
+      cover_image:
+        typeof o.cover_image === "string" ? o.cover_image : undefined,
+      metadata,
+    },
+  };
+}
+
+/** フォーム初期値用: Building → MVP 入力 */
+export function buildingToMvpFormValues(building: Building) {
+  return {
+    name: building.nameJa ?? building.name,
+    name_en: building.nameJa ? building.name : "",
+    address: building.address ?? "",
+    lat: String(building.location.lat),
+    lng: String(building.location.lng),
+    architect_name: building.architectName ?? "",
+    year:
+      building.yearCompleted != null ? String(building.yearCompleted) : "",
+    description: building.description ?? "",
+    cover_image: building.coverImageUrl ?? "",
+    place_id: building.googlePlaceId ?? "",
+  };
+}

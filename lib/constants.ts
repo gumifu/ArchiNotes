@@ -14,13 +14,11 @@ export function googleMapsDestinationCenterUrl(): string {
 }
 
 /**
- * 画像URLが空の場合は public/images/placeholder.png を返す
+ * 画像URLが空の場合は public/images/placeholder.png を返す。
+ * 相対パスのままにする（絶対 URL にすると next/image がリモート扱いし localhost 要設定になる）。
  */
 export function getImageUrl(url: string | undefined | null): string {
   const trimmed = url?.trim();
   if (trimmed && trimmed.length > 0) return trimmed;
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}${PLACEHOLDER_IMAGE_URL}`;
-  }
   return PLACEHOLDER_IMAGE_URL;
 }

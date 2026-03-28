@@ -92,7 +92,11 @@ export function MapBottomBuildingCarousel({
           overflowY: "hidden",
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
+          touchAction: "pan-x",
+          overscrollBehaviorX: "contain",
+          overscrollBehaviorY: "none",
           px: 2,
+          pl: 2.5,
           pb: 1,
           pointerEvents: "auto",
           scrollbarWidth: "none",
@@ -115,7 +119,8 @@ export function MapBottomBuildingCarousel({
               }}
             >
               <Paper
-                elevation={3}
+                elevation={0}
+                variant="outlined"
                 onClick={() => onCardDetailTap(b)}
                 sx={{
                   height: "100%",
@@ -128,6 +133,7 @@ export function MapBottomBuildingCarousel({
                   outlineColor: "primary.main",
                   outlineOffset: 2,
                   transition: "outline-width 0.15s ease",
+                  borderColor: "divider",
                 }}
               >
                 <Box

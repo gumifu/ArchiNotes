@@ -3,6 +3,7 @@
 import { BuildingDetailPanel } from "@/components/building-detail-panel";
 import { MapSearchBar } from "@/components/map-search-bar";
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
+import { trackBuildingStat } from "@/lib/building-stats";
 import {
   getFavoriteBuildingIds,
   getRecentBuildingIds,
@@ -208,7 +209,10 @@ export function MapSearchUiArea({
   const handleSelectFromSearch = useCallback(
     (b: Building) => {
       const q = searchQuery.trim();
-      if (q) recordSearchQuery(q);
+      if (q) {
+        recordSearchQuery(q);
+        trackBuildingStat(b.id, "search_hit");
+      }
       onSelectBuilding(b);
     },
     [searchQuery, onSelectBuilding],
@@ -222,6 +226,7 @@ export function MapSearchUiArea({
       recordSearchQuery(q);
       const first = filtered[0];
       if (first) {
+        trackBuildingStat(first.id, "search_hit");
         onSelectBuilding(first);
       }
     },

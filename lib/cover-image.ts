@@ -1,4 +1,6 @@
 import { getImageUrl } from "@/lib/constants";
+import { buildPlacesPhotoQueryString } from "@/lib/places-client-query";
+import { DEFAULT_MAX_PLACE_PHOTOS } from "@/lib/places-photo";
 import type { Building } from "@/types/building";
 
 /**
@@ -45,14 +47,17 @@ export async function resolveBuildingCoverImageErrorAsync(
 
   if (!skipPlaces) {
     try {
-      const name = encodeURIComponent(building.nameJa ?? building.name);
       const r = await fetch(
-        `/api/places-photo?lat=${building.location.lat}&lng=${building.location.lng}&name=${name}`,
+        `/api/places-photo?${buildPlacesPhotoQueryString(building, DEFAULT_MAX_PLACE_PHOTOS)}`,
       );
       if (r.ok) {
-        const d = (await r.json()) as { url: string | null };
-        if (d.url) {
-          apply(d.url);
+        const d = (await r.json()) as {
+          url: string | null;
+          urls?: string[];
+        };
+        const first = d.url ?? d.urls?.[0];
+        if (first) {
+          apply(first);
           return;
         }
       }
