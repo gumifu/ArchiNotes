@@ -1,16 +1,16 @@
 import { BuildingDetailView } from "@/components/building-detail-view";
-import { getBuildingById, getBuildingBySlug } from "@/lib/buildings";
-import { getBuildingFromFirestoreById } from "@/lib/buildings-server";
+import {
+  permanentRedirectToCanonicalBuildingPath,
+  resolveBuildingFromUrlSegment,
+} from "@/lib/building-resolve";
 import { DEFAULT_LOCALE, pickLocalized } from "@/lib/locale-text";
 import { notFound } from "next/navigation";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props) {
-  const { id } = await params;
-  const fromDb = await getBuildingFromFirestoreById(id);
-  const building =
-    fromDb ?? getBuildingBySlug(id) ?? getBuildingById(id);
+  const { slug: param } = await params;
+  const building = await resolveBuildingFromUrlSegment(param);
   if (!building) return { title: "建築が見つかりません" };
   const titleName = pickLocalized(building.name, DEFAULT_LOCALE);
   const summarySnippet = pickLocalized(building.summary, DEFAULT_LOCALE).slice(
@@ -27,11 +27,11 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function BuildingDetailPage({ params }: Props) {
-  const { id } = await params;
-  const fromDb = await getBuildingFromFirestoreById(id);
-  const building =
-    fromDb ?? getBuildingBySlug(id) ?? getBuildingById(id);
+  const { slug: param } = await params;
+  const building = await resolveBuildingFromUrlSegment(param);
   if (!building) notFound();
+
+  permanentRedirectToCanonicalBuildingPath(param, building);
 
   return <BuildingDetailView building={building} />;
 }

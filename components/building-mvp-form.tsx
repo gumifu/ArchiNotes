@@ -489,6 +489,7 @@ export function BuildingMvpForm({
           error?: string;
           message?: string;
           id?: string;
+          slug?: string;
         };
         if (!res.ok) {
           if (
@@ -527,7 +528,13 @@ export function BuildingMvpForm({
         if (mode === "create") {
           clearBuildingRegistrationDraft();
         }
-        router.push(`/buildings/${id}`);
+        const pathSlug =
+          mode === "create"
+            ? typeof data.slug === "string" && data.slug
+              ? data.slug
+              : id
+            : initialBuilding?.slug || id;
+        router.push(`/buildings/${pathSlug}`);
         router.refresh();
       } catch {
         setError("通信に失敗しました。");
@@ -535,7 +542,7 @@ export function BuildingMvpForm({
         setSubmitting(false);
       }
     },
-    [form, formAiMeta, mode, buildingId, router, rawSourceDraft],
+    [form, formAiMeta, mode, buildingId, initialBuilding, router, rawSourceDraft],
   );
 
   const handleDeleteBuilding = useCallback(async () => {

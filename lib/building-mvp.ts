@@ -2,6 +2,7 @@ import {
   parseBuildingAiMeta,
   pruneBuildingAiMeta,
 } from "@/lib/building-ai-meta";
+import { isValidSlugFormat } from "@/lib/building-slug";
 import {
   computeLocaleValidation,
   normalizeLocalizedText,
@@ -122,6 +123,8 @@ function parseRawSource(data: Record<string, unknown>): BuildingRawSource | unde
 export type BuildingMvpCreateBody = {
   name: LocalizedText;
   address: LocalizedText;
+  /** 省略時はサーバーが name から生成 */
+  slug?: string;
   summary?: LocalizedText;
   architectName?: LocalizedText;
   lat: number;
@@ -205,11 +208,14 @@ export function firestoreDataToBuilding(id: string, data: DocumentData): Buildin
 
   const rawSource = parseRawSource(d);
 
+  const slugField =
+    typeof d.slug === "string" && d.slug.trim() ? d.slug.trim() : "";
+
   const numOr0 = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
   const base: Building = {
     id,
-    slug: typeof d.slug === "string" && d.slug ? d.slug : id,
+    slug: slugField || id,
     name,
     architectId: typeof d.architectId === "string" ? d.architectId : "",
     architectName,
@@ -365,6 +371,22 @@ export function parseCreateBody(
     }
   }
 
+  let slug: string | undefined;
+  if (o.slug !== undefined && o.slug !== null && o.slug !== "") {
+    if (typeof o.slug !== "string") {
+      return { ok: false, error: "slug は文字列にしてください" };
+    }
+    const s = o.slug.trim().toLowerCase();
+    if (!isValidSlugFormat(s)) {
+      return {
+        ok: false,
+        error:
+          "slug は小文字英数字とハイフンのみ、先頭末尾にハイフンは使えません（最大200文字）",
+      };
+    }
+    slug = s;
+  }
+
   const lat = typeof o.lat === "number" ? o.lat : Number(o.lat);
   const lng = typeof o.lng === "number" ? o.lng : Number(o.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -493,6 +515,7 @@ export function parseCreateBody(
     value: {
       name,
       address,
+      slug,
       summary,
       architectName: arch,
       lat,
@@ -540,6 +563,7 @@ export function buildFirestoreWritePayload(
   const payload: Record<string, unknown> = {
     name,
     address,
+    ...(body.slug ? { slug: body.slug } : {}),
     lat: body.lat,
     lng: body.lng,
     location: { lat: body.lat, lng: body.lng },

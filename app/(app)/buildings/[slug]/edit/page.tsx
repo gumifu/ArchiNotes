@@ -1,23 +1,30 @@
 import { BuildingEditForm } from "@/components/building-edit-form";
 import { BuildingMvpForm } from "@/components/building-mvp-form";
 import { Button } from "@/components/ui/button";
-import { getBuildingById, getBuildingBySlug } from "@/lib/buildings";
+import {
+  permanentRedirectToCanonicalBuildingPath,
+  resolveBuildingFromUrlSegment,
+} from "@/lib/building-resolve";
 import { getBuildingFromFirestoreById } from "@/lib/buildings-server";
 import { DEFAULT_LOCALE, pickLocalized } from "@/lib/locale-text";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ slug: string }> };
 
 export default async function BuildingEditPage({ params }: Props) {
-  const { id } = await params;
-  const fromDb = await getBuildingFromFirestoreById(id);
-  const fromJson = getBuildingBySlug(id) ?? getBuildingById(id);
-  const building = fromDb ?? fromJson;
+  const { slug: param } = await params;
+  const building = await resolveBuildingFromUrlSegment(param);
   if (!building) notFound();
 
+  permanentRedirectToCanonicalBuildingPath(param, building, {
+    suffix: "/edit",
+  });
+
   const title = pickLocalized(building.name, DEFAULT_LOCALE);
+
+  const fromDb = await getBuildingFromFirestoreById(building.id);
 
   return (
     <div className="py-6">

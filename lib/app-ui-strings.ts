@@ -71,7 +71,7 @@ export function appUiStrings(locale: LocaleCode) {
       ? "View full building page"
       : "建築の全情報を見る",
 
-    /** 建築詳細ページ（/buildings/[id]） */
+    /** 建築詳細ページ（/buildings/[slug]） */
     detailBackToMap: en ? "Back to map" : "マップに戻る",
     detailEdit: en ? "Edit" : "編集",
     detailLocaleValidationHint: en

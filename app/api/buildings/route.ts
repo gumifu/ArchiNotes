@@ -3,6 +3,8 @@ import {
   firestoreDataToBuilding,
   parseCreateBody,
 } from "@/lib/building-mvp";
+import { generateBuildingSlugCandidate } from "@/lib/building-slug";
+import { reserveUniqueBuildingSlug } from "@/lib/buildings-server";
 import { getAdminFirestore, isFirebaseAdminConfigured } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { DocumentData } from "firebase/firestore";
@@ -54,7 +56,11 @@ export async function POST(request: Request) {
   }
 
   const id = randomUUID();
-  const payload = buildFirestoreWritePayload(parsed.value);
+  const baseSlug =
+    parsed.value.slug ??
+    generateBuildingSlugCandidate(parsed.value.name);
+  const slug = await reserveUniqueBuildingSlug(baseSlug, id);
+  const payload = buildFirestoreWritePayload({ ...parsed.value, slug });
 
   try {
     const db = getAdminFirestore();
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
         created_at: FieldValue.serverTimestamp(),
         updated_at: FieldValue.serverTimestamp(),
       });
-    return NextResponse.json({ id }, { status: 201 });
+    return NextResponse.json({ id, slug }, { status: 201 });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "create_failed" }, { status: 500 });
