@@ -9,7 +9,18 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-const localBuildings = buildingsData as Building[];
+const localBuildings: Building[] = (
+  Array.isArray(buildingsData) ? buildingsData : []
+).map((raw, i) => {
+  const id =
+    raw &&
+    typeof raw === "object" &&
+    "id" in raw &&
+    typeof (raw as { id: unknown }).id === "string"
+      ? (raw as { id: string }).id
+      : `local-${i}`;
+  return firestoreDataToBuilding(id, raw as DocumentData);
+});
 
 /**
  * data/buildings.json の建築のうち published なものを返す（DB未接続時用）

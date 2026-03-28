@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMergedBuilding } from "@/hooks/use-merged-building";
 import { saveBuildingOverride } from "@/lib/building-local-storage";
+import { normalizeLocalizedText } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,22 +22,24 @@ export function BuildingEditForm({ building: initial }: { building: Building }) 
 
   const defaults = useMemo(
     () => ({
-      name: building.name,
-      nameJa: building.nameJa ?? "",
-      architectName: building.architectName,
+      name_ja: building.name.ja ?? "",
+      name_en: building.name.en ?? "",
+      architect_ja: building.architectName?.ja ?? "",
+      architect_en: building.architectName?.en ?? "",
       architectId: building.architectId,
       country: building.country,
       city: building.city,
       ward: building.ward ?? "",
       district: building.district ?? "",
-      address: building.address ?? "",
+      address_ja: building.address?.ja ?? "",
+      address_en: building.address?.en ?? "",
       nearestStation: building.nearestStation ?? "",
       yearCompleted:
         building.yearCompleted != null ? String(building.yearCompleted) : "",
       buildingType: building.buildingType ?? "",
       style: building.style ?? "",
-      shortDescription: building.shortDescription ?? "",
-      description: building.description ?? "",
+      summary_ja: building.summary?.ja ?? "",
+      summary_en: building.summary?.en ?? "",
       officialWebsite: building.officialWebsite ?? "",
       googleMapsUrl: building.googleMapsUrl ?? "",
       googlePlaceId: building.googlePlaceId ?? "",
@@ -57,6 +60,10 @@ export function BuildingEditForm({ building: initial }: { building: Building }) 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
+      if (!form.name_ja.trim() && !form.name_en.trim()) {
+        alert("名称を日本語または英語のいずれかで入力してください。");
+        return;
+      }
       const lat = Number.parseFloat(form.lat);
       const lng = Number.parseFloat(form.lng);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -73,21 +80,31 @@ export function BuildingEditForm({ building: initial }: { building: Building }) 
       }
 
       const patch: Partial<Building> = {
-        name: form.name.trim(),
-        nameJa: form.nameJa.trim() || undefined,
-        architectName: form.architectName.trim(),
+        name: normalizeLocalizedText({
+          ja: form.name_ja.trim(),
+          en: form.name_en.trim(),
+        }),
+        architectName: normalizeLocalizedText({
+          ja: form.architect_ja.trim(),
+          en: form.architect_en.trim(),
+        }),
         architectId: form.architectId.trim(),
         country: form.country.trim(),
         city: form.city.trim(),
         ward: form.ward.trim() || undefined,
         district: form.district.trim() || undefined,
-        address: form.address.trim() || undefined,
+        address: normalizeLocalizedText({
+          ja: form.address_ja.trim(),
+          en: form.address_en.trim(),
+        }),
         nearestStation: form.nearestStation.trim() || undefined,
         yearCompleted: year,
         buildingType: form.buildingType.trim() || undefined,
         style: form.style.trim() || undefined,
-        shortDescription: form.shortDescription.trim() || undefined,
-        description: form.description.trim() || undefined,
+        summary: normalizeLocalizedText({
+          ja: form.summary_ja.trim(),
+          en: form.summary_en.trim(),
+        }),
         officialWebsite: form.officialWebsite.trim() || undefined,
         googleMapsUrl: form.googleMapsUrl.trim() || undefined,
         googlePlaceId: form.googlePlaceId.trim() || undefined,
@@ -102,7 +119,10 @@ export function BuildingEditForm({ building: initial }: { building: Building }) 
   );
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-lg space-y-6 pb-12">
+    <form
+      onSubmit={handleSubmit}
+      className="archinotes-max-w-form space-y-6 pb-12"
+    >
       <p className="text-muted-foreground text-sm">
         変更はこのブラウザの localStorage に保存されます（開発・個人向け）。
       </p>
@@ -113,38 +133,47 @@ export function BuildingEditForm({ building: initial }: { building: Building }) 
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <label className={labelClass} htmlFor="name">
-              名称（英語など）
-            </label>
-            <input
-              id="name"
-              className={inputClass}
-              value={form.name}
-              onChange={set("name")}
-              required
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="nameJa">
+            <label className={labelClass} htmlFor="name_ja">
               名称（日本語）
             </label>
             <input
-              id="nameJa"
+              id="name_ja"
               className={inputClass}
-              value={form.nameJa}
-              onChange={set("nameJa")}
+              value={form.name_ja}
+              onChange={set("name_ja")}
             />
           </div>
           <div>
-            <label className={labelClass} htmlFor="architectName">
-              建築家
+            <label className={labelClass} htmlFor="name_en">
+              名称（英語）
             </label>
             <input
-              id="architectName"
+              id="name_en"
               className={inputClass}
-              value={form.architectName}
-              onChange={set("architectName")}
-              required
+              value={form.name_en}
+              onChange={set("name_en")}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="architect_ja">
+              建築家（日本語）
+            </label>
+            <input
+              id="architect_ja"
+              className={inputClass}
+              value={form.architect_ja}
+              onChange={set("architect_ja")}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="architect_en">
+              建築家（英語）
+            </label>
+            <input
+              id="architect_en"
+              className={inputClass}
+              value={form.architect_en}
+              onChange={set("architect_en")}
             />
           </div>
           <div>
@@ -214,14 +243,25 @@ export function BuildingEditForm({ building: initial }: { building: Building }) 
             />
           </div>
           <div>
-            <label className={labelClass} htmlFor="address">
-              住所（表示用）
+            <label className={labelClass} htmlFor="address_ja">
+              住所（日本語・表示用）
             </label>
             <input
-              id="address"
+              id="address_ja"
               className={inputClass}
-              value={form.address}
-              onChange={set("address")}
+              value={form.address_ja}
+              onChange={set("address_ja")}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="address_en">
+              住所（英語・表示用）
+            </label>
+            <input
+              id="address_en"
+              className={inputClass}
+              value={form.address_en}
+              onChange={set("address_en")}
             />
           </div>
           <div>
@@ -306,27 +346,27 @@ export function BuildingEditForm({ building: initial }: { building: Building }) 
             />
           </div>
           <div>
-            <label className={labelClass} htmlFor="shortDescription">
-              短い説明
+            <label className={labelClass} htmlFor="summary_ja">
+              概要（日本語）
             </label>
             <textarea
-              id="shortDescription"
-              className={`${inputClass} min-h-[72px] py-2`}
-              value={form.shortDescription}
-              onChange={set("shortDescription")}
-              rows={3}
+              id="summary_ja"
+              className={`${inputClass} min-h-[100px] py-2`}
+              value={form.summary_ja}
+              onChange={set("summary_ja")}
+              rows={5}
             />
           </div>
           <div>
-            <label className={labelClass} htmlFor="description">
-              説明
+            <label className={labelClass} htmlFor="summary_en">
+              概要（英語）
             </label>
             <textarea
-              id="description"
-              className={`${inputClass} min-h-[120px] py-2`}
-              value={form.description}
-              onChange={set("description")}
-              rows={6}
+              id="summary_en"
+              className={`${inputClass} min-h-[100px] py-2`}
+              value={form.summary_en}
+              onChange={set("summary_en")}
+              rows={5}
             />
           </div>
         </CardContent>

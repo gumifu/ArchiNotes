@@ -1,7 +1,12 @@
 "use client";
 
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { appUiStrings, businessStatusLabel } from "@/lib/app-ui-strings";
 import { formatPlaceInfoVerifiedDateLine } from "@/lib/place-info-freshness";
+import { pickLocalized } from "@/lib/locale-text";
+import type { LocaleCode } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
+import { GooglePlacesDetailSkeleton } from "@/components/loading-skeletons";
 import {
   AlertTriangle,
   Clock,
@@ -46,25 +51,19 @@ type PlaceDetailsApi = {
   message?: string;
 };
 
-function businessStatusJa(s: string | undefined): string {
-  switch (s) {
-    case "OPERATIONAL":
-      return "営業中";
-    case "CLOSED_TEMPORARILY":
-      return "一時休業";
-    case "CLOSED_PERMANENTLY":
-      return "閉業";
-    default:
-      return s ?? "—";
-  }
-}
-
-function PlaceInfoAttributionNotice({ building }: { building: Building }) {
+function PlaceInfoAttributionNotice({
+  building,
+  locale,
+}: {
+  building: Building;
+  locale: LocaleCode;
+}) {
+  const ui = appUiStrings(locale);
   return (
     <div className="text-muted-foreground space-y-1.5 text-xs leading-relaxed">
-      <p>{formatPlaceInfoVerifiedDateLine(building.placeInfoVerifiedAt)}</p>
-      <p>一部情報は Google Places を参照しています。</p>
-      <p>現地訪問前に公式情報もご確認ください。</p>
+      <p>{formatPlaceInfoVerifiedDateLine(building.placeInfoVerifiedAt, locale)}</p>
+      <p>{ui.googlePlaceAttribution1}</p>
+      <p>{ui.googlePlaceAttribution2}</p>
     </div>
   );
 }
@@ -85,6 +84,8 @@ function Row({ icon, children }: { icon: ReactNode; children: ReactNode }) {
 }
 
 export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
+  const locale = useUiLocale();
+  const ui = appUiStrings(locale);
   const [data, setData] = useState<PlaceDetailsApi | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -100,7 +101,9 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
     let cancelled = false;
     setLoading(true);
     setErr(null);
-    fetch(`/api/places-details?placeId=${encodeURIComponent(placeId)}`)
+    fetch(
+      `/api/places-details?placeId=${encodeURIComponent(placeId)}&languageCode=${encodeURIComponent(locale)}`,
+    )
       .then(async (r) => {
         if (!r.ok) {
           const j = (await r.json().catch(() => ({}))) as { message?: string };
@@ -113,7 +116,11 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
       })
       .catch((e: unknown) => {
         if (!cancelled)
-          setErr(e instanceof Error ? e.message : "取得に失敗しました");
+          setErr(
+            e instanceof Error
+              ? e.message
+              : appUiStrings(locale).genericFetchError,
+          );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -121,15 +128,16 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
     return () => {
       cancelled = true;
     };
-  }, [placeId]);
+  }, [placeId, locale]);
 
   if (!placeId) return null;
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">Google 情報を読み込み中…</p>
-        <PlaceInfoAttributionNotice building={building} />
+        <p className="text-muted-foreground text-xs">{ui.googlePlaceLoading}</p>
+        <GooglePlacesDetailSkeleton />
+        <PlaceInfoAttributionNotice building={building} locale={locale} />
       </div>
     );
   }
@@ -138,9 +146,10 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
     return (
       <div className="space-y-4">
         <p className="text-destructive text-sm wrap-break-word">
-          Google 情報の取得に失敗しました: {err}
+          {ui.googlePlaceErrorPrefix}
+          {err}
         </p>
-        <PlaceInfoAttributionNotice building={building} />
+        <PlaceInfoAttributionNotice building={building} locale={locale} />
       </div>
     );
   }
@@ -148,8 +157,8 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
   if (!data) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">Google 情報を表示できません。</p>
-        <PlaceInfoAttributionNotice building={building} />
+        <p className="text-sm text-gray-500">{ui.googlePlaceUnavailable}</p>
+        <PlaceInfoAttributionNotice building={building} locale={locale} />
       </div>
     );
   }
@@ -162,7 +171,7 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
     data.currentOpeningHours?.weekdayDescriptions;
 
   const tv = data.typeValidation;
-  const address = building.address?.trim();
+  const address = pickLocalized(building.address, locale).trim();
 
   return (
     <div className="overflow-hidden rounded-md border border-gray-200 bg-background">
@@ -184,23 +193,23 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
           <Row icon={<Tag className="size-5 stroke-[1.75]" />}>
             <div className="space-y-0.5">
               <p>
-                <span className="font-medium text-gray-900">営業状態</span>
+                <span className="font-medium text-gray-900">
+                  {ui.googlePlaceBusinessStatus}
+                </span>
               </p>
               <p className="text-gray-700">
                 {data.businessStatus === "OPERATIONAL" ? (
                   <span className="font-medium text-green-600">
-                    {businessStatusJa(data.businessStatus)}
+                    {businessStatusLabel(locale, data.businessStatus)}
                   </span>
                 ) : (
-                  <span>{businessStatusJa(data.businessStatus)}</span>
+                  <span>{businessStatusLabel(locale, data.businessStatus)}</span>
                 )}
                 {openNow !== undefined && (
                   <span className="text-gray-600">
                     {" "}
-                    · 現在:{" "}
-                    {openNow
-                      ? "開いている可能性が高い"
-                      : "閉じている可能性が高い"}
+                    {ui.googlePlaceOpenNow}
+                    {openNow ? ui.googlePlaceLikelyOpen : ui.googlePlaceLikelyClosed}
                   </span>
                 )}
               </p>
@@ -213,7 +222,7 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
           data.types) && (
           <Row icon={<Tag className="size-5 stroke-[1.75]" />}>
             <div className="space-y-1">
-              <p className="font-medium text-gray-900">カテゴリ</p>
+              <p className="font-medium text-gray-900">{ui.googlePlaceCategory}</p>
               <p className="text-gray-700">
                 {data.primaryTypeDisplayName?.text ?? data.primaryType ?? "—"}
               </p>
@@ -229,7 +238,7 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
         {weekdayLines && weekdayLines.length > 0 && (
           <Row icon={<Clock className="size-5 stroke-[1.75]" />}>
             <div className="space-y-1">
-              <p className="font-medium text-gray-900">営業時間</p>
+              <p className="font-medium text-gray-900">{ui.googlePlaceHours}</p>
               <ul className="space-y-1 text-gray-700">
                 {weekdayLines.map((line, i) => (
                   <li key={i} className="text-sm">
@@ -244,7 +253,9 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
         {data.containingPlaces && data.containingPlaces.length > 0 && (
           <Row icon={<Layers className="size-5 stroke-[1.75]" />}>
             <div className="space-y-1">
-              <p className="font-medium text-gray-900">所在施設</p>
+              <p className="font-medium text-gray-900">
+                {ui.googlePlaceContaining}
+              </p>
               <ul className="list-inside list-disc text-gray-700">
                 {data.containingPlaces.map((p, i) => (
                   <li key={i} className="text-sm">
@@ -263,7 +274,7 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
           className="border-border text-foreground mb-3 flex w-full items-center justify-center gap-2 rounded-md border bg-muted/40 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted/70"
         >
           <Pencil className="size-4" aria-hidden />
-          建築情報を編集
+          {ui.googlePlaceEditBuilding}
         </Link>
 
         {mapsHref ? (
@@ -273,12 +284,12 @@ export function BuildingGooglePlaceInfo({ building }: { building: Building }) {
             rel="noopener noreferrer"
             className={`${GMAPS_LINK} flex w-full items-center justify-center gap-2 py-2 text-sm font-medium hover:underline`}
           >
-            Google マップで開く
+            {ui.googlePlaceOpenInMaps}
           </a>
         ) : null}
 
         <div className="mt-4 border-t border-gray-100 pt-4">
-          <PlaceInfoAttributionNotice building={building} />
+          <PlaceInfoAttributionNotice building={building} locale={locale} />
         </div>
       </div>
     </div>

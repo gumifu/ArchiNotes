@@ -1,5 +1,6 @@
 "use client";
 
+import { DocumentLangSync } from "@/components/document-lang-sync";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
@@ -23,6 +24,7 @@ export function ThemeRegistry({ children }: { children: React.ReactNode }) {
     <AppRouterCacheProvider options={{ enableCssLayer: true }}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <DocumentLangSync />
         {children}
       </ThemeProvider>
     </AppRouterCacheProvider>

@@ -1,8 +1,13 @@
 "use client";
 
+import { AiSourceInfo } from "@/components/ai-source-info";
+import { AiSuggestionBadge } from "@/components/ai-suggestion-badge";
 import { BuildingGooglePlaceInfo } from "@/components/building-google-place-info";
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
+import { useUiLocale } from "@/hooks/use-ui-locale";
 import { trackBuildingStat } from "@/lib/building-stats";
+import { appUiStrings } from "@/lib/app-ui-strings";
+import { pickLocalized } from "@/lib/locale-text";
 import { getImageUrl } from "@/lib/constants";
 import {
   isFavoriteBuildingId,
@@ -25,9 +30,24 @@ import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import NextLink from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const SUMMARY_COLLAPSE_CHARS = 280;
+
+function GalleryImageWithFallback({ src: initialSrc }: { src: string }) {
+  const [src, setSrc] = useState(initialSrc);
+  return (
+    <Image
+      src={src}
+      alt=""
+      fill
+      className="object-cover"
+      sizes="120px"
+      onError={() => setSrc(getImageUrl(null))}
+    />
+  );
+}
 
 export type BuildingDetailPanelProps = {
   building: Building;
@@ -59,22 +79,27 @@ export function BuildingDetailPanel({
     onError: onCoverError,
     placesPhotoUrls,
   } = useBuildingCoverImageSrc(building);
-  const title = building.nameJa ?? building.name;
+  const locale = useUiLocale();
+  const ui = appUiStrings(locale);
+  const title = pickLocalized(building.name, locale);
+  const altLocale = locale === "ja" ? "en" : "ja";
+  const subtitleRaw = pickLocalized(building.name, altLocale);
   const subtitle =
-    building.nameJa && building.name !== building.nameJa ? building.name : null;
-  const yearLabel = building.yearCompleted
-    ? `${building.yearCompleted}年完成`
-    : null;
+    subtitleRaw && subtitleRaw !== title ? subtitleRaw : null;
+  const architectDisplay = pickLocalized(building.architectName, locale);
+  const addressDisplay = pickLocalized(building.address, locale);
+  const yearLabel =
+    building.yearCompleted != null
+      ? ui.yearCompleted(building.yearCompleted)
+      : null;
   const locationLine = [building.country, building.city, building.ward]
     .filter(Boolean)
     .join(" · ");
 
-  const summaryText = useMemo(() => {
-    if (building.shortDescription?.trim())
-      return building.shortDescription.trim();
-    if (building.description?.trim()) return building.description.trim();
-    return "";
-  }, [building.shortDescription, building.description]);
+  const summaryText = useMemo(
+    () => pickLocalized(building.summary, locale).trim(),
+    [building.summary, locale],
+  );
 
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [fav, setFav] = useState(false);
@@ -174,14 +199,14 @@ export function BuildingDetailPanel({
         >
           <Box>
             {showBackRow && (
-              <IconButton aria-label="一覧に戻る" onClick={onBack} size="small">
+              <IconButton aria-label={ui.backToListAria} onClick={onBack} size="small">
                 <ArrowBack />
               </IconButton>
             )}
           </Box>
           <Box>
             {onClose && (
-              <IconButton aria-label="閉じる" onClick={onClose} size="small">
+              <IconButton aria-label={ui.closeAria} onClick={onClose} size="small">
                 <Close />
               </IconButton>
             )}
@@ -206,19 +231,15 @@ export function BuildingDetailPanel({
             flexShrink: 0,
           }}
         >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={coverSrc}
-          alt=""
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
-          onError={onCoverError}
-        />
-      </Box>
+          <Image
+            src={coverSrc}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 420px"
+            onError={onCoverError}
+          />
+        </Box>
 
       <Box
         sx={{
@@ -261,19 +282,19 @@ export function BuildingDetailPanel({
         >
           <MapAction
             icon={<Directions />}
-            label="経路"
+            label={ui.directions}
             primary
             onClick={handleDirections}
           />
           <MapAction
             icon={fav ? <Bookmark /> : <BookmarkBorder />}
-            label="保存"
+            label={ui.save}
             onClick={handleFavorite}
           />
           {isMapPlace && (
             <MapAction
               icon={<Explore />}
-              label="周辺"
+              label={ui.nearby}
               onClick={() => {
                 const { lat, lng } = building.location;
                 window.open(
@@ -284,30 +305,92 @@ export function BuildingDetailPanel({
               }}
             />
           )}
-          <MapAction icon={<Share />} label="共有" onClick={handleShare} />
+          <MapAction icon={<Share />} label={ui.share} onClick={handleShare} />
           <MapAction
             icon={<OpenInNew />}
-            label="詳細"
+            label={ui.details}
             href={`/buildings/${building.slug || building.id}`}
           />
         </Stack>
 
-        {(yearLabel || locationLine || building.architectName) && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {[building.architectName, yearLabel, locationLine]
-              .filter(Boolean)
-              .join(" · ")}
+        {(yearLabel || locationLine || architectDisplay) && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            component="div"
+            sx={{
+              mb: 2,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              columnGap: 0.75,
+              rowGap: 0.5,
+            }}
+          >
+            {architectDisplay ? (
+              <Box
+                component="span"
+                sx={{
+                  display: "inline-flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                {architectDisplay}
+                {building.aiMeta?.architectName?.isAiSuggested === true && (
+                  <>
+                    <AiSuggestionBadge />
+                    <AiSourceInfo
+                      sourceName={building.aiMeta.architectName.sourceName}
+                      sourceUrl={building.aiMeta.architectName.sourceUrl}
+                      note={building.aiMeta.architectName.note}
+                    />
+                  </>
+                )}
+              </Box>
+            ) : null}
+            {architectDisplay && (yearLabel || locationLine) ? (
+              <span aria-hidden>·</span>
+            ) : null}
+            {yearLabel ? (
+              <Box
+                component="span"
+                sx={{
+                  display: "inline-flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                {yearLabel}
+                {building.aiMeta?.year?.isAiSuggested === true && (
+                  <>
+                    <AiSuggestionBadge />
+                    <AiSourceInfo
+                      sourceName={building.aiMeta.year.sourceName}
+                      sourceUrl={building.aiMeta.year.sourceUrl}
+                      note={building.aiMeta.year.note}
+                    />
+                  </>
+                )}
+              </Box>
+            ) : null}
+            {(architectDisplay || yearLabel) && locationLine ? (
+              <span aria-hidden>·</span>
+            ) : null}
+            {locationLine || null}
           </Typography>
         )}
 
-        {building.address && (
+        {addressDisplay && (
           <Typography variant="body2" sx={{ mb: 1 }}>
-            {building.address}
+            {addressDisplay}
           </Typography>
         )}
         {building.nearestStation && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            最寄り: {building.nearestStation}
+            {ui.nearestStation(building.nearestStation)}
           </Typography>
         )}
 
@@ -326,12 +409,30 @@ export function BuildingDetailPanel({
 
         {summaryText ? (
           <Box sx={{ mb: 2 }}>
+            {building.aiMeta?.summary?.isAiSuggested === true && (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 0.75,
+                  mb: 1,
+                }}
+              >
+                <AiSuggestionBadge />
+                <AiSourceInfo
+                  sourceName={building.aiMeta.summary.sourceName}
+                  sourceUrl={building.aiMeta.summary.sourceUrl}
+                  note={building.aiMeta.summary.note}
+                />
+              </Box>
+            )}
             <Typography
               variant="h6"
               component="h3"
               sx={{ mb: 1, fontSize: "1.1rem" }}
             >
-              概要
+              {ui.summaryHeading}
             </Typography>
             <Typography
               variant="body2"
@@ -348,7 +449,7 @@ export function BuildingDetailPanel({
                 onClick={() => setSummaryExpanded((e) => !e)}
                 sx={{ mt: 0.5, cursor: "pointer" }}
               >
-                {summaryExpanded ? "閉じる" : "もっと見る"}
+                {summaryExpanded ? ui.showLess : ui.showMore}
               </Link>
             )}
           </Box>
@@ -368,7 +469,7 @@ export function BuildingDetailPanel({
                 component="h3"
                 sx={{ fontSize: "1.1rem" }}
               >
-                写真
+                {ui.photosHeading}
               </Typography>
             </Stack>
             <Stack
@@ -386,6 +487,7 @@ export function BuildingDetailPanel({
                 <Box
                   key={`${src}-${i}`}
                   sx={{
+                    position: "relative",
                     flexShrink: 0,
                     width: 120,
                     height: 88,
@@ -394,20 +496,7 @@ export function BuildingDetailPanel({
                     bgcolor: "grey.200",
                   }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={src}
-                    alt=""
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                    onError={(e) => {
-                      e.currentTarget.src = getImageUrl(null);
-                    }}
-                  />
+                  <GalleryImageWithFallback src={src} />
                 </Box>
               ))}
             </Stack>
@@ -422,7 +511,7 @@ export function BuildingDetailPanel({
           size="medium"
           endIcon={<OpenInNew />}
         >
-          建築の全情報を見る
+          {ui.viewFullBuilding}
         </Button>
       </Box>
       </Box>

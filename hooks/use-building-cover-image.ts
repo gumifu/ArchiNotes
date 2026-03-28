@@ -7,6 +7,7 @@ import {
 } from "@/lib/cover-image";
 import { buildPlacesPhotoQueryString } from "@/lib/places-client-query";
 import { DEFAULT_MAX_PLACE_PHOTOS } from "@/lib/places-photo";
+import { pickLocalized } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 import { useCallback, useEffect, useState } from "react";
 
@@ -41,7 +42,7 @@ export function useBuildingCoverImageSrc(building: Building) {
     let cancelled = false;
     (async () => {
       try {
-        const name = encodeURIComponent(building.nameJa ?? building.name);
+        const name = encodeURIComponent(pickLocalized(building.name, "ja"));
         const r = await fetch(
           `/api/places-photo?lat=${building.location.lat}&lng=${building.location.lng}&name=${name}&max=${DEFAULT_MAX_PLACE_PHOTOS}`,
         );
@@ -66,7 +67,6 @@ export function useBuildingCoverImageSrc(building: Building) {
   }, [
     building.id,
     building.name,
-    building.nameJa,
     building.location.lat,
     building.location.lng,
     building.googlePlaceId,

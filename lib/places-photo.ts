@@ -28,9 +28,10 @@ export type PlacesPhotoResult = {
   };
 };
 
+/** 一覧・マーカー・ヒーロー共用。Next Image でさらに WebP/AVIF 最適化 */
 function buildPhotoUrl(photoRef: string, apiKey: string): string {
   return (
-    `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800` +
+    `https://maps.googleapis.com/maps/api/place/photo?maxwidth=640` +
     `&photo_reference=${encodeURIComponent(photoRef)}&key=${encodeURIComponent(apiKey)}`
   );
 }

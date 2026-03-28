@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 
 /**
  * GET /api/places-prefill?placeId=...
- * 新規建築フォーム初期値用。レスポンスはフォーム向け最小項目のみ（DB に Google 本文を載せない方針）。
+ * 新規建築フォーム初期値用。Places を ja / en で取得し名称・住所を両言語に分ける。
+ * rawSource.googlePlaces は { ja, en } に各レスポンスを格納。
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

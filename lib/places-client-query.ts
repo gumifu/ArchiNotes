@@ -1,4 +1,5 @@
 import { DEFAULT_MAX_PLACE_PHOTOS } from "@/lib/places-photo";
+import { pickLocalized } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 
 /**
@@ -13,6 +14,6 @@ export function buildPlacesPhotoQueryString(
   if (pid) {
     return `placeId=${encodeURIComponent(pid)}&max=${cap}`;
   }
-  const name = encodeURIComponent(building.nameJa ?? building.name);
+  const name = encodeURIComponent(pickLocalized(building.name, "ja"));
   return `lat=${building.location.lat}&lng=${building.location.lng}&name=${name}&max=${cap}`;
 }

@@ -2,6 +2,7 @@
  * Places API (New) の Place Details。表示時取得用。
  * レスポンス本文は Firestore にマスタとして長期保存しない方針 — docs/google-maps-platform-data-policy.md
  */
+import type { LocaleCode } from "@/lib/locale-text";
 import {
   validateArchitecturePlaceTypes,
   type ArchitectureTypeValidation,
@@ -47,14 +48,24 @@ const FIELD_MASK = [
  * Places API (New) GET /v1/places/{place_id}
  * @see https://developers.google.com/maps/documentation/places/web-service/place-details
  */
+export type FetchPlaceDetailsOptions = {
+  /** UI 言語。Places API の `languageCode` と検証メッセージの両方に使う */
+  uiLocale?: LocaleCode;
+};
+
 export async function fetchPlaceDetailsNew(
   placeId: string,
   apiKey: string,
+  options?: FetchPlaceDetailsOptions,
 ): Promise<PlaceDetailsPayload> {
   const id = placeId.trim();
-  const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`;
+  const uiLocale = options?.uiLocale ?? "en";
+  const url = new URL(
+    `https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`,
+  );
+  url.searchParams.set("languageCode", uiLocale);
 
-  const res = await fetch(url, {
+  const res = await fetch(url.toString(), {
     headers: {
       "X-Goog-Api-Key": apiKey,
       "X-Goog-FieldMask": FIELD_MASK,
@@ -83,6 +94,7 @@ export async function fetchPlaceDetailsNew(
   const typeValidation = validateArchitecturePlaceTypes(
     json.primaryType,
     json.types,
+    uiLocale,
   );
 
   return {

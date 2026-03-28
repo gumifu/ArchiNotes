@@ -1,17 +1,36 @@
+import type { BuildingAiMeta } from "@/types/building-ai-meta";
+
+/** ユーザー向けテキスト（日本語・英語を同一フィールドに混在させない） */
+export type LocalizedText = {
+  ja?: string;
+  en?: string;
+};
+
+/** 必須ロケールやペア不整合の検出用（Firestore に保存） */
+export type BuildingLocaleValidation = {
+  /** 値が欠けているフィールドキー（例: name, address） */
+  missingJa?: string[];
+  missingEn?: string[];
+};
+
+/** 外部ソースの生データ（表示の唯一の根拠にはしない） */
+export type BuildingRawSource = {
+  googlePlaces?: Record<string, unknown> | null;
+};
+
 export type Building = {
   id: string;
   slug: string;
-  name: string;
-  nameJa?: string;
+  name: LocalizedText;
   architectId: string;
-  architectName: string;
+  architectName?: LocalizedText;
   yearCompleted?: number | null;
   status?: "built" | "unbuilt" | "renovated";
   country: string;
   city: string;
   ward?: string;
   district?: string;
-  address?: string;
+  address?: LocalizedText;
   location: {
     lat: number;
     lng: number;
@@ -27,8 +46,8 @@ export type Building = {
   floorsBelowGround?: number | null;
   siteAreaSqm?: number | null;
   floorAreaSqm?: number | null;
-  description?: string;
-  shortDescription?: string;
+  /** 長文概要（旧 description / shortDescription は読み取り時にマージ） */
+  summary?: LocalizedText;
   historicalContext?: string;
   designHighlights?: string[];
   experienceTags?: string[];
@@ -61,6 +80,11 @@ export type Building = {
   popularityScore?: number;
   /** 将来拡張用（構造・素材など）。Firestore の metadata と対応 */
   metadata?: Record<string, unknown>;
+  /** AI 補完の出典・フラグ（Firestore `aiMeta`） */
+  aiMeta?: BuildingAiMeta;
+  /** Google Places 等の取得時レスポンス（表示用の正規データではない） */
+  rawSource?: BuildingRawSource;
+  localeValidation?: BuildingLocaleValidation;
   published: boolean;
   featured: boolean;
   createdAt: string;

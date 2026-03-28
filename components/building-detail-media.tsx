@@ -1,7 +1,10 @@
 "use client";
 
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { appUiStrings } from "@/lib/app-ui-strings";
 import { getImageUrl } from "@/lib/constants";
+import { pickLocalized } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 import Image from "next/image";
 import { useMemo } from "react";
@@ -20,6 +23,8 @@ export function BuildingDetailMedia({
   heroClassName,
   priority,
 }: BuildingDetailMediaProps) {
+  const locale = useUiLocale();
+  const ui = appUiStrings(locale);
   const {
     src: coverSrc,
     onError,
@@ -45,21 +50,25 @@ export function BuildingDetailMedia({
 
   return (
     <>
-      <div className="bg-muted relative h-[220px] w-full sm:h-[260px]">
-        <Image
-          src={coverSrc}
-          alt={building.nameJa ?? building.name}
-          fill
-          className={heroClassName}
-          sizes="100vw"
-          priority={priority}
-          onError={onError}
-        />
+      <div className="-mx-4 sm:-mx-6">
+        <div className="bg-muted relative h-[220px] w-full sm:h-[260px]">
+          <Image
+            src={coverSrc}
+            alt={pickLocalized(building.name, locale)}
+            fill
+            className={heroClassName}
+            sizes="(max-width: 768px) 100vw, 768px"
+            priority={priority}
+            onError={onError}
+          />
+        </div>
       </div>
 
       {gridUrls.length > 0 && (
         <section className="mt-6 px-4">
-          <h2 className="text-foreground mb-3 text-lg font-semibold">写真</h2>
+          <h2 className="text-foreground mb-3 text-lg font-semibold">
+            {ui.photosHeading}
+          </h2>
           <div className="grid grid-cols-3 gap-2">
             {gridUrls.map((url, i) => (
               <div
@@ -71,7 +80,7 @@ export function BuildingDetailMedia({
                   alt=""
                   fill
                   className="object-cover"
-                  sizes="(max-width: 768px) 33vw, 200px"
+                  sizes="(max-width: 768px) 33vw, 240px"
                 />
               </div>
             ))}

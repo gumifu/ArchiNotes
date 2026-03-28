@@ -1,6 +1,8 @@
 "use client";
 
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { pickLocalized } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 import Image from "next/image";
 
@@ -20,12 +22,13 @@ export function BuildingHeroImage({
   sizes = "100vw",
   priority,
 }: BuildingHeroImageProps) {
+  const locale = useUiLocale();
   const { src, onError } = useBuildingCoverImageSrc(building);
 
   return (
     <Image
       src={src}
-      alt={building.nameJa ?? building.name}
+      alt={pickLocalized(building.name, locale)}
       fill
       className={className}
       sizes={sizes}

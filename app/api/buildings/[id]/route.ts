@@ -68,6 +68,13 @@ export async function PUT(
   }
 
   const payload = buildFirestoreWritePayload(parsed.value);
+  const legacyDeletes = {
+    name_en: FieldValue.delete(),
+    nameJa: FieldValue.delete(),
+    description: FieldValue.delete(),
+    shortDescription: FieldValue.delete(),
+    architect_name: FieldValue.delete(),
+  };
 
   try {
     const db = getAdminFirestore();
@@ -78,11 +85,44 @@ export async function PUT(
     }
     await ref.update({
       ...payload,
+      ...legacyDeletes,
       updated_at: FieldValue.serverTimestamp(),
     });
     return NextResponse.json({ id });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "update_failed" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/buildings/[id] — Firestore のドキュメントを削除
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  if (!id?.trim()) {
+    return NextResponse.json({ error: "invalid_id" }, { status: 400 });
+  }
+  if (!isFirebaseAdminConfigured()) {
+    return NextResponse.json(
+      { error: "firebase_admin_not_configured" },
+      { status: 503 },
+    );
+  }
+  try {
+    const db = getAdminFirestore();
+    const ref = db.collection("buildings").doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    await ref.delete();
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "delete_failed" }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { BuildingDetailView } from "@/components/building-detail-view";
 import { getBuildingById, getBuildingBySlug } from "@/lib/buildings";
 import { getBuildingFromFirestoreById } from "@/lib/buildings-server";
+import { DEFAULT_LOCALE, pickLocalized } from "@/lib/locale-text";
 import { notFound } from "next/navigation";
 
 type Props = { params: Promise<{ id: string }> };
@@ -11,12 +12,17 @@ export async function generateMetadata({ params }: Props) {
   const building =
     fromDb ?? getBuildingBySlug(id) ?? getBuildingById(id);
   if (!building) return { title: "建築が見つかりません" };
+  const titleName = pickLocalized(building.name, DEFAULT_LOCALE);
+  const summarySnippet = pickLocalized(building.summary, DEFAULT_LOCALE).slice(
+    0,
+    120,
+  );
+  const arch = pickLocalized(building.architectName, DEFAULT_LOCALE);
   return {
-    title: `${building.nameJa ?? building.name} | ArchiNotes`,
+    title: `${titleName || "建築"} | ArchiNotes`,
     description:
-      building.shortDescription ??
-      building.description?.slice(0, 120) ??
-      `${building.architectName}設計。${building.city}。`,
+      summarySnippet ||
+      (arch ? `${arch}設計。${building.city}。` : `${building.city}。`),
   };
 }
 

@@ -1,8 +1,12 @@
 "use client";
 
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { appUiStrings } from "@/lib/app-ui-strings";
+import { pickLocalized } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 import ChevronRight from "@mui/icons-material/ChevronRight";
+import Image from "next/image";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -14,18 +18,16 @@ const GAP = 12;
 function CarouselCardThumbnail({ building }: { building: Building }) {
   const { src, onError } = useBuildingCoverImageSrc(building);
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
-      src={src}
-      alt=""
-      style={{
-        width: "100%",
-        height: "100%",
-        minHeight: 120,
-        objectFit: "cover",
-      }}
-      onError={onError}
-    />
+    <div className="relative h-full min-h-[120px] w-full">
+      <Image
+        src={src}
+        alt=""
+        fill
+        className="object-cover"
+        sizes="112px"
+        onError={onError}
+      />
+    </div>
   );
 }
 
@@ -44,6 +46,8 @@ export function MapBottomBuildingCarousel({
   selectedBuilding,
   onCardDetailTap,
 }: MapBottomBuildingCarouselProps) {
+  const locale = useUiLocale();
+  const ui = appUiStrings(locale);
   const theme = useTheme();
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -104,7 +108,8 @@ export function MapBottomBuildingCarousel({
         }}
       >
         {buildings.map((b) => {
-          const title = b.nameJa ?? b.name;
+          const title = pickLocalized(b.name, locale);
+          const arch = pickLocalized(b.architectName, locale);
           const selected = selectedBuilding?.id === b.id;
           return (
             <Box
@@ -172,7 +177,7 @@ export function MapBottomBuildingCarousel({
                     noWrap
                     sx={{ display: "block", mt: 0.25 }}
                   >
-                    {[b.architectName, b.city].filter(Boolean).join(" · ")}
+                    {[arch, b.city].filter(Boolean).join(" · ")}
                   </Typography>
                   <Box
                     sx={{
@@ -183,7 +188,7 @@ export function MapBottomBuildingCarousel({
                     }}
                   >
                     <Typography variant="caption" fontWeight={600}>
-                      詳細を見る
+                      {ui.carouselSeeDetails}
                     </Typography>
                     <ChevronRight sx={{ fontSize: 16 }} />
                   </Box>

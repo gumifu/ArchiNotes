@@ -3,6 +3,7 @@ import { BuildingMvpForm } from "@/components/building-mvp-form";
 import { Button } from "@/components/ui/button";
 import { getBuildingById, getBuildingBySlug } from "@/lib/buildings";
 import { getBuildingFromFirestoreById } from "@/lib/buildings-server";
+import { DEFAULT_LOCALE, pickLocalized } from "@/lib/locale-text";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -16,10 +17,10 @@ export default async function BuildingEditPage({ params }: Props) {
   const building = fromDb ?? fromJson;
   if (!building) notFound();
 
-  const title = building.nameJa ?? building.name;
+  const title = pickLocalized(building.name, DEFAULT_LOCALE);
 
   return (
-    <div className="bg-background min-h-screen px-4 py-6">
+    <div className="py-6">
       <Button variant="ghost" size="sm" className="mb-4 shadow-none" asChild>
         <Link
           href={`/buildings/${building.slug || building.id}`}

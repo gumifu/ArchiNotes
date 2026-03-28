@@ -1,6 +1,9 @@
 "use client";
 
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { appUiStrings } from "@/lib/app-ui-strings";
+import { buildingSearchHayString, pickLocalized } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 import Search from "@mui/icons-material/Search";
 import Avatar from "@mui/material/Avatar";
@@ -49,15 +52,15 @@ export function MapExplorerPanel({
   selectedBuilding,
   onSelectBuilding,
 }: MapExplorerPanelProps) {
+  const locale = useUiLocale();
+  const ui = appUiStrings(locale);
   const [searchQuery, setSearchQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = normalize(searchQuery);
     if (!q) return buildings;
     return buildings.filter((b) => {
-      const hay = [b.name, b.nameJa, b.architectName, b.city, b.country, b.ward]
-        .filter(Boolean)
-        .join(" ");
+      const hay = buildingSearchHayString(b);
       return normalize(hay).includes(q);
     });
   }, [buildings, searchQuery]);
@@ -86,7 +89,7 @@ export function MapExplorerPanel({
         <TextField
           size="small"
           fullWidth
-          placeholder="建築を検索"
+          placeholder={ui.explorerSearchPlaceholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           slotProps={{
@@ -105,7 +108,7 @@ export function MapExplorerPanel({
         {filtered.length === 0 ? (
           <Box sx={{ px: 2, py: 4 }}>
             <Typography variant="body2" color="text.secondary" align="center">
-              該当する建築がありません
+              {ui.explorerNoResults}
             </Typography>
           </Box>
         ) : (
@@ -122,8 +125,8 @@ export function MapExplorerPanel({
                   <BuildingExplorerAvatar building={b} />
                 </ListItemAvatar>
                 <ListItemText
-                  primary={b.nameJa ?? b.name}
-                  secondary={b.architectName}
+                  primary={pickLocalized(b.name, locale)}
+                  secondary={pickLocalized(b.architectName, locale)}
                   primaryTypographyProps={{
                     variant: "body2",
                     fontWeight: 600,

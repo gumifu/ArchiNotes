@@ -2,6 +2,8 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useBuildingCoverImageSrc } from "@/hooks/use-building-cover-image";
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { pickLocalized } from "@/lib/locale-text";
 import { getBuildingsForMap, getLocalBuildings } from "@/lib/buildings";
 import { trackBuildingStat } from "@/lib/building-stats";
 import { MAP_DEFAULT_CENTER } from "@/lib/constants";
@@ -16,6 +18,7 @@ import {
   type AdvancedMarkerRef,
 } from "@vis.gl/react-google-maps";
 import { MapPin } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -222,14 +225,16 @@ function BuildingMarker({
   selected,
 }: BuildingMarkerProps) {
   const { src, onError } = useBuildingCoverImageSrc(building);
+  const locale = useUiLocale();
   const theme = useTheme();
   const primary = theme.palette.primary.main;
+  const title = pickLocalized(building.name, locale);
   return (
     <AdvancedMarker
       ref={(m) => onRef(index, m)}
       position={building.location}
       onClick={() => onSelect(building)}
-      title={building.name}
+      title={title}
     >
       <div
         className="overflow-hidden rounded-full border-2 shadow-md transition-transform hover:scale-110"
@@ -243,14 +248,14 @@ function BuildingMarker({
             : undefined,
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={src}
           alt=""
           width={MARKER_SIZE}
           height={MARKER_SIZE}
           className="block h-full w-full object-cover"
           onError={onError}
+          sizes="48px"
         />
       </div>
     </AdvancedMarker>
@@ -335,6 +340,8 @@ export type ArchitectureMapProps = {
     building: Building,
     options?: BuildingSelectOptions,
   ) => void;
+  /** 地図上の POI（施設アイコン）をクリックしたとき。placeId が取れた場合のみ呼ばれる */
+  onPoiPlaceClick?: (placeId: string) => void | Promise<void>;
   /** Use buildings from parent (e.g. MapContainer) instead of fetching. */
   buildingsProp?: Building[] | null;
   /** If true, map fills the viewport (for map-first layout). */
@@ -355,6 +362,7 @@ export type ArchitectureMapProps = {
 
 export function ArchitectureMap({
   onBuildingSelect,
+  onPoiPlaceClick,
   buildingsProp = null,
   fullscreen = false,
   selectedBuilding = null,
@@ -408,6 +416,15 @@ export function ArchitectureMap({
     [onBuildingSelect, router],
   );
 
+  const handleMapClick = useCallback(
+    (e: { detail: { placeId: string | null } }) => {
+      const pid = e.detail.placeId?.trim();
+      if (!pid || !onPoiPlaceClick) return;
+      void onPoiPlaceClick(pid);
+    },
+    [onPoiPlaceClick],
+  );
+
   if (!apiKey) {
     return (
       <div className="flex min-h-[400px] items-center justify-center p-4">
@@ -448,6 +465,7 @@ export function ArchitectureMap({
           gestureHandling="greedy"
           disableDefaultUI
           style={{ width: "100%", height: "100%" }}
+          onClick={onPoiPlaceClick ? handleMapClick : undefined}
         >
           <MapControlsLayout />
           <MapTypeControlPositionFix />

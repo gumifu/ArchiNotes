@@ -2,6 +2,7 @@
  * Google Places の primaryType / types と照合し、建築・観光・文化施設として妥当か判定する。
  * @see https://developers.google.com/maps/documentation/places/web-service/place-types
  */
+import type { LocaleCode } from "@/lib/locale-text";
 
 /** このいずれかに該当すれば「妥当」とみなす（厳しめ） */
 const ARCHITECTURE_CORE_TYPES = new Set([
@@ -60,7 +61,9 @@ export type ArchitectureTypeValidation = {
 export function validateArchitecturePlaceTypes(
   primaryType: string | undefined,
   types: string[] | undefined,
+  uiLocale: LocaleCode = "ja",
 ): ArchitectureTypeValidation {
+  const en = uiLocale === "en";
   const list = types ?? [];
   const primary = primaryType?.trim() ?? "";
   const all = new Set<string>([...list, ...(primary ? [primary] : [])]);
@@ -75,7 +78,9 @@ export function validateArchitecturePlaceTypes(
     return {
       level: "warning",
       matchedCore: [],
-      message: "カテゴリ情報がありません。",
+      message: en
+        ? "No category information."
+        : "カテゴリ情報がありません。",
     };
   }
 
@@ -83,15 +88,17 @@ export function validateArchitecturePlaceTypes(
     return {
       level: "warning",
       matchedCore: [],
-      message:
-        "カテゴリが汎用のみです。別施設の可能性があります。Place ID を確認してください。",
+      message: en
+        ? "Only generic categories are listed. This may be a different place—verify the Place ID."
+        : "カテゴリが汎用のみです。別施設の可能性があります。Place ID を確認してください。",
     };
   }
 
   return {
     level: "mismatch",
     matchedCore: [],
-    message:
-      "建築・観光スポットとして想定されないカテゴリです。googlePlaceId の取り違えを確認してください。",
+    message: en
+      ? "This category is not typical for architecture or sightseeing. Double-check googlePlaceId."
+      : "建築・観光スポットとして想定されないカテゴリです。googlePlaceId の取り違えを確認してください。",
   };
 }

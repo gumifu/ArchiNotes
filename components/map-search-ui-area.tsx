@@ -12,6 +12,9 @@ import {
 } from "@/lib/map-user-data";
 import type { Building } from "@/types/building";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { appUiStrings } from "@/lib/app-ui-strings";
+import { buildingSearchHayString, pickLocalized } from "@/lib/locale-text";
 import Bookmark from "@mui/icons-material/Bookmark";
 import History from "@mui/icons-material/History";
 import PlaceOutlined from "@mui/icons-material/PlaceOutlined";
@@ -19,7 +22,7 @@ import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import CircularProgress from "@mui/material/CircularProgress";
+import { GoogleSuggestionsListSkeleton } from "@/components/loading-skeletons";
 import Collapse from "@mui/material/Collapse";
 import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
@@ -73,6 +76,7 @@ function BuildingListItems({
   onSelect: (b: Building) => void;
   selectedId?: string | null;
 }) {
+  const locale = useUiLocale();
   return (
     <List disablePadding dense>
       {items.map((b) => (
@@ -87,8 +91,8 @@ function BuildingListItems({
             <BuildingSearchAvatar building={b} />
           </Box>
           <ListItemText
-            primary={b.nameJa ?? b.name}
-            secondary={b.architectName}
+            primary={pickLocalized(b.name, locale)}
+            secondary={pickLocalized(b.architectName, locale)}
             primaryTypographyProps={{
               variant: "body2",
               fontWeight: 600,
@@ -135,6 +139,8 @@ export function MapSearchUiArea({
   placePreview = null,
   onClearPlacePreview,
 }: MapSearchUiAreaProps) {
+  const locale = useUiLocale();
+  const ui = appUiStrings(locale);
   const router = useRouter();
   const [panelOpen, setPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,16 +206,7 @@ export function MapSearchUiArea({
     }
     setFiltered(
       list.filter((b) => {
-        const hay = [
-          b.name,
-          b.nameJa,
-          b.architectName,
-          b.city,
-          b.country,
-          b.ward,
-        ]
-          .filter(Boolean)
-          .join(" ");
+        const hay = buildingSearchHayString(b);
         return normalize(hay).includes(q);
       }),
     );
@@ -364,7 +361,7 @@ export function MapSearchUiArea({
         <MapSearchBar
           variant="cardTop"
           value={searchQuery}
-          placeholder="ArchiNotes を検索"
+          placeholder={ui.searchPlaceholder}
           onChange={(v) => {
             setSearchQuery(v);
             setPanelOpen(true);
@@ -390,7 +387,7 @@ export function MapSearchUiArea({
         >
           <Chip
             size="small"
-            label="保存済みのみ"
+            label={ui.savedOnly}
             onClick={() => {
               setSavedOnly((v) => !v);
               openPanel();
@@ -427,7 +424,7 @@ export function MapSearchUiArea({
                 color="primary"
                 sx={{ textTransform: "none", fontWeight: 500 }}
               >
-                閉じる
+                {ui.close}
               </Button>
             </Stack>
 
@@ -456,7 +453,7 @@ export function MapSearchUiArea({
                       }}
                     >
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        地図上の登録候補
+                        {ui.mapPlaceSuggestionTitle}
                       </Typography>
                       <Typography variant="body2" sx={{ mt: 0.5 }}>
                         {placePreview.name}
@@ -473,7 +470,7 @@ export function MapSearchUiArea({
                         color="text.secondary"
                         sx={{ display: "block", mt: 1 }}
                       >
-                        地図のオレンジのピンで位置を確認し、問題なければ登録へ進んでください。
+                        {ui.mapPlaceHint}
                       </Typography>
                       <Stack
                         direction="row"
@@ -489,14 +486,14 @@ export function MapSearchUiArea({
                           size="small"
                           sx={{ textTransform: "none" }}
                         >
-                          この場所を登録する
+                          {ui.registerThisPlace}
                         </Button>
                         <Button
                           size="small"
                           onClick={onClearPlacePreview}
                           sx={{ textTransform: "none" }}
                         >
-                          候補を消す
+                          {ui.dismissCandidate}
                         </Button>
                       </Stack>
                     </Box>
@@ -509,13 +506,13 @@ export function MapSearchUiArea({
                       color="text.secondary"
                       sx={{ fontWeight: 600 }}
                     >
-                      ArchiNotes の建築（{filtered.length}件）
+                      {ui.archiNotesBuildings(filtered.length)}
                     </Typography>
                   </Box>
                   {filtered.length === 0 ? (
                     <Box sx={{ px: 2, py: 2 }}>
                       <Typography variant="body2" color="text.secondary">
-                        該当する建築がありません
+                        {ui.noMatchingBuildings}
                       </Typography>
                     </Box>
                   ) : (
@@ -534,37 +531,27 @@ export function MapSearchUiArea({
                       color="text.secondary"
                       sx={{ fontWeight: 600 }}
                     >
-                      Google の候補
+                      {ui.googleSuggestions}
                     </Typography>
                   </Box>
                   {searchQuery.trim().length < PLACES_MIN_CHARS ? (
                     <Box sx={{ px: 2, pb: 2 }}>
                       <Typography variant="body2" color="text.secondary">
-                        {PLACES_MIN_CHARS}
-                        文字以上で Google の候補を取得します。
+                        {ui.googleMinChars(PLACES_MIN_CHARS)}
                       </Typography>
                     </Box>
                   ) : placesLoading ? (
-                    <Box
-                      sx={{
-                        px: 2,
-                        py: 3,
-                        display: "flex",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <CircularProgress size={26} />
-                    </Box>
+                    <GoogleSuggestionsListSkeleton rows={4} />
                   ) : placesError ? (
                     <Box sx={{ px: 2, pb: 2 }}>
                       <Typography variant="body2" color="error">
-                        Google の候補を取得できませんでした。
+                        {ui.googleSuggestionsError}
                       </Typography>
                     </Box>
                   ) : placesSuggestions.length === 0 ? (
                     <Box sx={{ px: 2, pb: 2 }}>
                       <Typography variant="body2" color="text.secondary">
-                        該当する場所がありません
+                        {ui.noMatchingPlaces}
                       </Typography>
                     </Box>
                   ) : (
@@ -612,7 +599,7 @@ export function MapSearchUiArea({
                           variant="body1"
                           sx={{ mb: 1, fontWeight: 600, fontSize: "1rem" }}
                         >
-                          最近の検索
+                          {ui.recentSearches}
                         </Typography>
                         <Stack direction="row" flexWrap="wrap" gap={0.75}>
                           {recentSearchQueries.map((q) => (
@@ -644,11 +631,11 @@ export function MapSearchUiArea({
                       variant="body1"
                       sx={{ mb: 1.25, fontWeight: 600, fontSize: "1rem" }}
                     >
-                      保存した建築
+                      {ui.savedBuildings}
                     </Typography>
                     {savedBuildings.length === 0 ? (
                       <Typography variant="body2" color="text.secondary">
-                        保存した建築はありません。詳細から保存できます。
+                        {ui.noSavedBuildings}
                       </Typography>
                     ) : (
                       <List disablePadding dense>
@@ -664,8 +651,8 @@ export function MapSearchUiArea({
                               fontSize="small"
                             />
                             <ListItemText
-                              primary={b.nameJa ?? b.name}
-                              secondary={b.architectName}
+                              primary={pickLocalized(b.name, locale)}
+                              secondary={pickLocalized(b.architectName, locale)}
                               primaryTypographyProps={{
                                 variant: "body2",
                                 fontWeight: 600,
@@ -688,11 +675,11 @@ export function MapSearchUiArea({
                       variant="body1"
                       sx={{ mb: 1.25, fontWeight: 600, fontSize: "1rem" }}
                     >
-                      最近開いた建築
+                      {ui.recentlyOpened}
                     </Typography>
                     {recentBuildings.length === 0 ? (
                       <Typography variant="body2" color="text.secondary">
-                        まだ履歴がありません。
+                        {ui.noRecentHistory}
                       </Typography>
                     ) : (
                       <>
@@ -713,7 +700,7 @@ export function MapSearchUiArea({
                                 fontSize="small"
                               />
                               <ListItemText
-                                primary={b.nameJa ?? b.name}
+                                primary={pickLocalized(b.name, locale)}
                                 secondary={[b.city, b.country]
                                   .filter(Boolean)
                                   .join(" · ")}
@@ -736,8 +723,8 @@ export function MapSearchUiArea({
                             sx={{ mt: 0.5, textTransform: "none" }}
                           >
                             {recentExpanded
-                              ? "履歴を閉じる"
-                              : "最近の履歴をもっと見る"}
+                              ? ui.historyShowLess
+                              : ui.historyShowMore}
                           </Button>
                         )}
                       </>
@@ -751,14 +738,14 @@ export function MapSearchUiArea({
                       variant="body1"
                       sx={{ mb: 0.75, fontWeight: 600, fontSize: "1rem" }}
                     >
-                      検索・候補
+                      {ui.searchAndSuggestions}
                     </Typography>
                     <Typography
                       variant="body2"
                       color="text.secondary"
                       sx={{ mb: 1.25, lineHeight: 1.5 }}
                     >
-                      上の欄に入力すると絞り込み、未入力時は登録建築からの候補です。
+                      {ui.searchPanelFooter}
                     </Typography>
                     <BuildingListItems
                       items={buildings.slice(0, 8)}

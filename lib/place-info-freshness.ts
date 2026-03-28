@@ -1,3 +1,4 @@
+import type { LocaleCode } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 
 /** MVP: 通常建築の Place 関連「確認」間隔（日） */
@@ -45,19 +46,21 @@ export function isPlaceInfoStale(
   return nowMs - verified >= days * 24 * 60 * 60 * 1000;
 }
 
-/** UI 用「情報確認日：YYYY-MM-DD」。未設定は em dash。 */
+/** UI 用「情報確認日／Last verified」の行。未設定は em dash。 */
 export function formatPlaceInfoVerifiedDateLine(
   iso: string | undefined,
+  locale: LocaleCode = "ja",
 ): string {
+  const prefix = locale === "en" ? "Last verified: " : "情報確認日：";
   const s = iso?.trim();
-  if (!s) return "情報確認日：—";
+  if (!s) return `${prefix}—`;
   const d = s.slice(0, 10);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return `情報確認日：${d}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return `${prefix}${d}`;
   try {
     const t = Date.parse(s);
-    if (Number.isNaN(t)) return "情報確認日：—";
-    return `情報確認日：${new Date(t).toISOString().slice(0, 10)}`;
+    if (Number.isNaN(t)) return `${prefix}—`;
+    return `${prefix}${new Date(t).toISOString().slice(0, 10)}`;
   } catch {
-    return "情報確認日：—";
+    return `${prefix}—`;
   }
 }

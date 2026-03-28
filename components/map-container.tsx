@@ -3,14 +3,18 @@
 import type { BuildingSelectOptions } from "@/components/architecture-map";
 import { ArchitectureMap } from "@/components/architecture-map";
 import { BuildingDetailPanel } from "@/components/building-detail-panel";
+import { MapBottomCarouselSkeleton } from "@/components/loading-skeletons";
 import { MapBottomBuildingCarousel } from "@/components/map-bottom-building-carousel";
 import { MapExplorerPanel } from "@/components/map-explorer-panel";
 import { MapSearchUiArea } from "@/components/map-search-ui-area";
 import { getBuildingsForMap, getLocalBuildings } from "@/lib/buildings";
 import { BUILDING_OVERRIDE_EVENT, mergeBuildingWithOverrides } from "@/lib/building-local-storage";
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { appUiStrings } from "@/lib/app-ui-strings";
 import { recordBuildingOpened } from "@/lib/map-user-data";
 import type { Building } from "@/types/building";
 import Menu from "@mui/icons-material/Menu";
+import Settings from "@mui/icons-material/Settings";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Drawer from "@mui/material/Drawer";
@@ -19,6 +23,9 @@ import SwipeableDrawer from "@mui/material/SwipeableDrawer";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Link from "next/link";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
@@ -26,6 +33,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
  * lg 未満: 地図全画面 + 下部カルーセル + メニューで一覧、詳細はシート。
  */
 export function MapContainer() {
+  const uiLocale = useUiLocale();
+  const ui = appUiStrings(uiLocale);
   const theme = useTheme();
   /** SSR と初回クライアントで useMediaQuery がずれるとハイドレーション不一致になるため、マウント後だけコンパクト判定を使う */
   const [layoutReady, setLayoutReady] = useState(false);
@@ -151,15 +160,29 @@ export function MapContainer() {
       }
       const data = (await res.json()) as {
         place_id: string;
-        name: string;
-        address: string;
+        name: string | { ja: string; en: string };
+        address: string | { ja: string; en: string };
         lat: number;
         lng: number;
       };
+      const nameStr =
+        typeof data.name === "string"
+          ? data.name
+          : uiLocale === "ja"
+            ? [data.name?.ja, data.name?.en].find((s) => s?.trim()) ?? ""
+            : [data.name?.en, data.name?.ja].find((s) => s?.trim()) ?? "";
+      const addrStr =
+        typeof data.address === "string"
+          ? data.address
+          : uiLocale === "ja"
+            ? [data.address?.ja, data.address?.en].find((s) => s?.trim()) ??
+              ""
+            : [data.address?.en, data.address?.ja].find((s) => s?.trim()) ??
+              "";
       setPlacePreview({
         placeId: data.place_id,
-        name: data.name,
-        address: data.address,
+        name: nameStr,
+        address: addrStr,
         lat: data.lat,
         lng: data.lng,
       });
@@ -172,7 +195,7 @@ export function MapContainer() {
       setPanTargetBuilding(null);
       setMobileDetailOpen(false);
     },
-    [mergedBuildings, handleBuildingSelect, clearPlacePreview],
+    [mergedBuildings, handleBuildingSelect, clearPlacePreview, uiLocale],
   );
 
   const handleClearSelection = useCallback(() => {
@@ -218,7 +241,7 @@ export function MapContainer() {
 
         {isMapCompact && (
           <IconButton
-            aria-label="建築一覧を開く"
+            aria-label={ui.mapOpenListAria}
             onClick={() => setMobileListOpen(true)}
             sx={{
               position: "absolute",
@@ -235,28 +258,50 @@ export function MapContainer() {
           </IconButton>
         )}
 
-        <Button
-          component={Link}
-          href="/buildings/new"
-          variant="outlined"
-          size="small"
+        <Stack
+          direction="row"
+          spacing={1}
           sx={{
             position: "absolute",
             top: 12,
             right: 12,
             zIndex: (t) => t.zIndex.appBar + 1,
-            bgcolor: "background.paper",
-            boxShadow: 2,
-            "&:hover": { bgcolor: "background.paper" },
+            alignItems: "center",
           }}
         >
-          建築を登録
-        </Button>
+          <IconButton
+            component={Link}
+            href="/settings"
+            aria-label={uiLocale === "en" ? "Settings" : "設定"}
+            sx={{
+              bgcolor: "background.paper",
+              boxShadow: 2,
+              "&:hover": { bgcolor: "background.paper" },
+            }}
+            size="small"
+          >
+            <Settings fontSize="small" />
+          </IconButton>
+          <Button
+            component={Link}
+            href="/buildings/new"
+            variant="outlined"
+            size="small"
+            sx={{
+              bgcolor: "background.paper",
+              boxShadow: 2,
+              "&:hover": { bgcolor: "background.paper" },
+            }}
+          >
+            {uiLocale === "en" ? "Add building" : "建築を登録"}
+          </Button>
+        </Stack>
 
         <ArchitectureMap
           fullscreen
           buildingsProp={loading ? null : mergedBuildings}
           onBuildingSelect={handleBuildingSelect}
+          onPoiPlaceClick={handleGooglePlacePreview}
           selectedBuilding={selectedBuilding}
           panTargetBuilding={panTargetBuilding}
           panTargetLatLng={panTargetLatLng}
@@ -271,6 +316,53 @@ export function MapContainer() {
           }
         />
 
+        {isMapCompact && placePreview && (
+          <Paper
+            elevation={4}
+            sx={{
+              position: "fixed",
+              left: 16,
+              right: 16,
+              bottom: "calc(140px + env(safe-area-inset-bottom, 0px))",
+              zIndex: (t) => t.zIndex.appBar + 1,
+              p: 2,
+              pointerEvents: "auto",
+              borderRadius: 2,
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              {uiLocale === "en"
+                ? "Suggested place"
+                : "地図上の登録候補"}
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 0.5, mb: 1.5 }}
+            >
+              {placePreview.name}
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Button
+                component={Link}
+                href={`/buildings/new?placeId=${encodeURIComponent(placePreview.placeId)}`}
+                variant="contained"
+                size="small"
+              >
+                {uiLocale === "en" ? "Register this place" : "この場所を登録する"}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={clearPlacePreview}
+              >
+                {uiLocale === "en" ? "Dismiss" : "閉じる"}
+              </Button>
+            </Stack>
+          </Paper>
+        )}
+
+        {loading && <MapBottomCarouselSkeleton />}
         {!loading && mergedBuildings.length > 0 && (
           <MapBottomBuildingCarousel
             buildings={mergedBuildings}

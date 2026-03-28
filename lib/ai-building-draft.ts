@@ -4,28 +4,34 @@
  */
 
 export type BuildingDraftInput = {
-  name: string;
+  name_ja: string;
   name_en?: string;
-  address?: string;
+  address_ja?: string;
+  address_en?: string;
   place_id?: string;
   lat?: number;
   lng?: number;
 };
 
 export type BuildingDraftOutput = {
-  architect_name?: string | null;
+  architect_ja?: string | null;
+  architect_en?: string | null;
   year?: number | null;
-  description?: string | null;
+  summary_ja?: string | null;
+  summary_en?: string | null;
+  /** 英語固有名の補足（入力に英名がない場合のみ） */
   name_en?: string | null;
 };
 
 const SYSTEM = `あなたは建築・都市の参考情報を短く提案するアシスタントです。
 出力は必ず有効な JSON オブジェクトのみ。説明文やマークダウンは禁止。
-次のキーだけを使う: architect_name, year, description, name_en
-- architect_name: 設計者名が分かる場合のみ。不明なら null。
+次のキーだけを使う: architect_ja, architect_en, year, summary_ja, summary_en, name_en
+- architect_ja: 設計者名が分かる場合の日本語表記。不明なら null。
+- architect_en: 設計者名が分かる場合の英語表記。不明なら null。
 - year: 竣工年が分かる場合のみ整数。不明なら null。推測が弱い場合は null。
-- description: 日本語で 1〜4 文、建築の概要。不確実な事実は書かない。「推測」「要確認」は書いてよい。
-- name_en: 英語の固有名が分かる場合のみ。不明なら null。
+- summary_ja: 日本語で 1〜4 文、建築の概要。不確実な事実は書かない。「推測」「要確認」は書いてよい。
+- summary_en: English, 1–4 sentences overview. null if unknown.
+- name_en: 英語の固有名が分かり、入力に英名が足りない場合のみ。不明なら null。
 推測に自信がない項目は null にする。ハルシネーションを避ける。`;
 
 export async function generateBuildingDraft(
@@ -34,9 +40,10 @@ export async function generateBuildingDraft(
   model: string,
 ): Promise<BuildingDraftOutput> {
   const userPayload = {
-    building_name_ja: input.name.trim(),
+    building_name_ja: input.name_ja.trim(),
     building_name_en: input.name_en?.trim() || null,
-    address: input.address?.trim() || null,
+    address_ja: input.address_ja?.trim() || null,
+    address_en: input.address_en?.trim() || null,
     place_id: input.place_id?.trim() || null,
     coordinates:
       input.lat != null && input.lng != null
@@ -90,12 +97,15 @@ export async function generateBuildingDraft(
 
   const o = parsed as Record<string, unknown>;
 
-  const architect_name =
-    typeof o.architect_name === "string"
-      ? o.architect_name.trim() || null
-      : o.architect_name === null
-        ? null
-        : undefined;
+  const strOrNull = (k: string) => {
+    const v = o[k];
+    if (typeof v === "string") return v.trim() || null;
+    if (v === null) return null;
+    return undefined;
+  };
+
+  const architect_ja = strOrNull("architect_ja");
+  const architect_en = strOrNull("architect_en");
 
   let year: number | null | undefined;
   if (o.year === null) year = null;
@@ -106,24 +116,16 @@ export async function generateBuildingDraft(
     year = Number.isFinite(y) ? y : null;
   }
 
-  const description =
-    typeof o.description === "string"
-      ? o.description.trim() || null
-      : o.description === null
-        ? null
-        : undefined;
-
-  const name_en =
-    typeof o.name_en === "string"
-      ? o.name_en.trim() || null
-      : o.name_en === null
-        ? null
-        : undefined;
+  const summary_ja = strOrNull("summary_ja");
+  const summary_en = strOrNull("summary_en");
+  const name_en = strOrNull("name_en");
 
   return {
-    architect_name: architect_name ?? null,
+    architect_ja: architect_ja ?? null,
+    architect_en: architect_en ?? null,
     year: year === undefined ? null : year,
-    description: description ?? null,
+    summary_ja: summary_ja ?? null,
+    summary_en: summary_en ?? null,
     name_en: name_en ?? null,
   };
 }

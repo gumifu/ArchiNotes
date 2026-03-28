@@ -3,10 +3,15 @@
 import { BuildingDetailMap } from "@/components/building-detail-map";
 import { BuildingDetailMedia } from "@/components/building-detail-media";
 import { BuildingGooglePlaceInfo } from "@/components/building-google-place-info";
+import { FieldWithAiMeta } from "@/components/field-with-ai-meta";
+import { FormAiHint } from "@/components/form-ai-hint";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMergedBuilding } from "@/hooks/use-merged-building";
+import { useUiLocale } from "@/hooks/use-ui-locale";
+import { appUiStrings } from "@/lib/app-ui-strings";
 import { trackBuildingStat } from "@/lib/building-stats";
+import { hasLocaleValidationIssues, pickLocalized } from "@/lib/locale-text";
 import type { Building } from "@/types/building";
 import {
   ArrowLeft,
@@ -50,6 +55,17 @@ function DetailSection({
 
 export function BuildingDetailView({ building: initial }: { building: Building }) {
   const building = useMergedBuilding(initial);
+  const locale = useUiLocale();
+  const ui = appUiStrings(locale);
+  const displayName = pickLocalized(building.name, locale);
+  const altName =
+    locale === "ja"
+      ? building.name.en?.trim() ?? ""
+      : building.name.ja?.trim() ?? "";
+  const showNameSubtitle = Boolean(altName && altName !== displayName);
+  const architectDisplay = pickLocalized(building.architectName, locale);
+  const summaryDisplay = pickLocalized(building.summary, locale);
+  const addressDisplay = pickLocalized(building.address, locale);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -60,23 +76,23 @@ export function BuildingDetailView({ building: initial }: { building: Building }
   }, [building.id]);
 
   const yearLabel = building.yearCompleted
-    ? `${building.yearCompleted}年完成`
+    ? ui.yearCompleted(building.yearCompleted)
     : "—";
   const editHref = `/buildings/${building.slug || building.id}/edit`;
 
   return (
     <div className="bg-background min-h-screen">
-      <header className="border-border bg-background/95 sticky top-0 z-10 flex items-center justify-between gap-2 border-b px-4 py-3 backdrop-blur">
+      <header className="border-border bg-background/95 sticky top-0 z-10 -mx-4 flex items-center justify-between gap-2 border-b px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/" className="flex items-center gap-2">
             <ArrowLeft className="size-4" aria-hidden />
-            マップに戻る
+            {ui.detailBackToMap}
           </Link>
         </Button>
         <Button variant="outline" size="sm" className="shadow-none" asChild>
           <Link href={editHref} className="gap-1.5">
             <Pencil className="size-3.5" aria-hidden />
-            編集
+            {ui.detailEdit}
           </Link>
         </Button>
       </header>
@@ -88,92 +104,121 @@ export function BuildingDetailView({ building: initial }: { building: Building }
           priority
         />
 
-        <div className="px-4 pt-4">
+        <div className="pt-4">
           <h1 className="text-foreground text-xl font-semibold">
-            {building.nameJa ?? building.name}
+            {displayName || "—"}
           </h1>
-          {building.nameJa && building.name !== building.nameJa && (
-            <p className="text-muted-foreground mt-0.5 text-sm">
-              {building.name}
+          {showNameSubtitle && (
+            <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm">
+              <span>{altName}</span>
+              <FormAiHint show={Boolean(building.aiMeta?.nameEn?.isAiSuggested)} />
+            </p>
+          )}
+          {hasLocaleValidationIssues(building.localeValidation ?? {}) && (
+            <p className="text-amber-800 dark:text-amber-200 mt-2 text-xs">
+              {ui.detailLocaleValidationHint}
             </p>
           )}
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Card className="border-border shadow-none">
-              <CardContent className="flex items-center gap-3 p-3">
+              <CardContent className="flex min-w-0 items-start gap-3 p-3">
                 <div className="bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-lg">
                   <User className="text-primary size-5" />
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">建築家</p>
-                  <p className="text-foreground text-sm font-medium">
-                    {building.architectName}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <FieldWithAiMeta
+                    label={ui.detailFieldArchitect}
+                    value={architectDisplay || "—"}
+                    aiMeta={building.aiMeta?.architectName}
+                  />
                 </div>
               </CardContent>
             </Card>
             <Card className="border-border shadow-none">
-              <CardContent className="flex items-center gap-3 p-3">
+              <CardContent className="flex min-w-0 items-start gap-3 p-3">
                 <div className="bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-lg">
                   <Calendar className="text-primary size-5" />
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">完成年</p>
-                  <p className="text-foreground text-sm font-medium">
-                    {yearLabel}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <FieldWithAiMeta
+                    label={ui.detailFieldYear}
+                    value={yearLabel}
+                    aiMeta={building.aiMeta?.year}
+                  />
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
 
-        <Card className="border-border mx-4 mt-6 shadow-none">
+        <Card className="border-border mt-6 shadow-none">
           <CardHeader className="pb-0">
-            <CardTitle className="text-base">詳細情報</CardTitle>
+            <CardTitle className="text-base">{ui.detailInfoTitle}</CardTitle>
           </CardHeader>
           <CardContent className="p-0 px-4">
-            <DetailSection title="基本情報" icon={Building2} defaultOpen={true}>
+            <DetailSection title={ui.detailBasicInfo} icon={Building2} defaultOpen={true}>
               <ul className="space-y-1.5">
+                <FieldWithAiMeta
+                  variant="inline"
+                  label={ui.detailFieldArchitect}
+                  value={architectDisplay || "—"}
+                  aiMeta={building.aiMeta?.architectName}
+                />
+                <FieldWithAiMeta
+                  variant="inline"
+                  label={ui.detailFieldYear}
+                  value={yearLabel}
+                  aiMeta={building.aiMeta?.year}
+                />
                 <li>
-                  <span className="text-foreground font-medium">建築家:</span>{" "}
-                  {building.architectName}
-                </li>
-                <li>
-                  <span className="text-foreground font-medium">完成年:</span>{" "}
-                  {yearLabel}
-                </li>
-                <li>
-                  <span className="text-foreground font-medium">所在地:</span>{" "}
+                  <span className="text-foreground font-medium">
+                    {ui.detailLabelLocation}:
+                  </span>{" "}
                   {building.country} / {building.city}
                   {building.ward && ` ${building.ward}`}
                 </li>
                 {building.buildingType && (
                   <li>
-                    <span className="text-foreground font-medium">用途:</span>{" "}
+                    <span className="text-foreground font-medium">
+                      {ui.detailLabelUse}:
+                    </span>{" "}
                     {building.buildingType}
                   </li>
                 )}
                 {building.style && (
                   <li>
-                    <span className="text-foreground font-medium">様式:</span>{" "}
+                    <span className="text-foreground font-medium">
+                      {ui.detailLabelStyle}:
+                    </span>{" "}
                     {building.style}
                   </li>
                 )}
               </ul>
             </DetailSection>
 
-            <DetailSection title="建築について" icon={Building2}>
-              {building.shortDescription && (
-                <p className="mb-2">{building.shortDescription}</p>
-              )}
-              {building.description && (
-                <p className="whitespace-pre-wrap">{building.description}</p>
-              )}
+            <DetailSection title={ui.detailSectionAbout} icon={Building2}>
+              {summaryDisplay ? (
+                <FieldWithAiMeta
+                  label={ui.detailLabelDescription}
+                  variant="block"
+                  hideLabel
+                  aiMeta={building.aiMeta?.summary}
+                  value={
+                    <p className="whitespace-pre-wrap">{summaryDisplay}</p>
+                  }
+                />
+              ) : null}
               {building.designHighlights &&
                 building.designHighlights.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-foreground mb-1 font-medium">見どころ</p>
+                  <div
+                    className={
+                      summaryDisplay ? "mt-4" : undefined
+                    }
+                  >
+                    <p className="text-foreground mb-1 font-medium">
+                      {ui.detailHighlights}
+                    </p>
                     <ul className="list-inside list-disc space-y-0.5">
                       {building.designHighlights.map((h, i) => (
                         <li key={i}>{h}</li>
@@ -181,48 +226,60 @@ export function BuildingDetailView({ building: initial }: { building: Building }
                     </ul>
                   </div>
                 )}
-              {!building.description &&
-                !building.shortDescription &&
+              {!summaryDisplay &&
                 (!building.designHighlights ||
                   building.designHighlights.length === 0) && (
-                  <p className="text-muted-foreground">説明はありません</p>
+                  <p className="text-muted-foreground">{ui.detailNoDescription}</p>
                 )}
             </DetailSection>
 
-            <DetailSection title="アクセス" icon={MapPin}>
+            <DetailSection title={ui.detailAccess} icon={MapPin}>
               <div className="space-y-3">
                 <BuildingDetailMap
                   lat={building.location.lat}
                   lng={building.location.lng}
-                  name={building.name}
+                  name={displayName || "—"}
                 />
-                {building.address && (
+                {addressDisplay ? (
                   <p className="flex items-start gap-2">
                     <MapPin className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                    <span>{building.address}</span>
+                    <span>{addressDisplay}</span>
                   </p>
-                )}
+                ) : null}
                 {building.nearestStation && (
                   <p className="flex items-center gap-2">
                     <Train className="text-muted-foreground size-4 shrink-0" />
-                    <span>最寄り: {building.nearestStation}</span>
+                    <span>
+                      {ui.detailNearestStation(building.nearestStation)}
+                    </span>
                   </p>
                 )}
               </div>
             </DetailSection>
 
-            <DetailSection title="Google Places" icon={Globe} defaultOpen={true}>
+            <DetailSection title={ui.detailGooglePlaces} icon={Globe} defaultOpen={true}>
               {building.googlePlaceId ? (
                 <BuildingGooglePlaceInfo building={building} />
+              ) : locale === "en" ? (
+                <p className="text-muted-foreground text-sm">
+                  {ui.detailGooglePlaceIdHintEnBefore}
+                  <Link
+                    href={editHref}
+                    className="text-primary font-medium underline"
+                  >
+                    {ui.detailEditPageLink}
+                  </Link>
+                  {ui.detailGooglePlaceIdHintEnAfter}
+                </p>
               ) : (
                 <p className="text-muted-foreground text-sm">
                   <Link
                     href={editHref}
                     className="text-primary font-medium underline"
                   >
-                    編集画面
+                    {ui.detailEditPageLink}
                   </Link>
-                  から Google の place ID を入力すると、営業時間やカテゴリを表示できます。
+                  {ui.detailGooglePlaceIdHintJaSuffix}
                 </p>
               )}
             </DetailSection>

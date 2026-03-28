@@ -108,3 +108,34 @@
 .architecture-map-root .gm-style-mtc-bbw [role="menu"] {
   text-align: right;
 }
+
+/*
+ * 読み幅: MUI AppRouterCacheProvider（cssLayer）と並んだとき、@layer 内の Tailwind
+ * の max-w-* が負けて全幅になることがあるため、@layer 外で max-width を固定する。
+ */
+.archinotes-reading-shell {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 48rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 1rem;
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 640px) {
+  .archinotes-reading-shell {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* フォーム・設定など、本文よりさらに狭いカラム（32rem ≒ max-w-lg） */
+.archinotes-max-w-form {
+  max-width: 32rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}

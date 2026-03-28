@@ -2,6 +2,7 @@
  * サーバ内メモリの短期キャッシュ。恒久 DB キャッシュの代替ではない。
  * 方針: docs/google-maps-platform-data-policy.md
  */
+import type { LocaleCode } from "@/lib/locale-text";
 import type { PlaceDetailsPayload } from "@/lib/places-details";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
@@ -10,8 +11,11 @@ type Entry = { ts: number; payload: PlaceDetailsPayload };
 
 const store = new Map<string, Entry>();
 
-export function placesDetailsCacheKey(placeId: string): string {
-  return placeId.trim().toLowerCase();
+export function placesDetailsCacheKey(
+  placeId: string,
+  uiLocale: LocaleCode = "en",
+): string {
+  return `${placeId.trim().toLowerCase()}::${uiLocale}`;
 }
 
 export function getPlaceDetailsCached(key: string): PlaceDetailsPayload | null {

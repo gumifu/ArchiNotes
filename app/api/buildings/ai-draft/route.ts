@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 
 /**
  * POST /api/buildings/ai-draft
- * body: { name, name_en?, address?, place_id?, lat?, lng? }
- * 建築家・年・説明・英名の下書き案（推測。保存前にユーザーが確認すること）。
+ * body: { name_ja, name_en?, address_ja?, address_en?, place_id?, lat?, lng? }
+ * 建築家・年・概要・英名の下書き案（推測。保存前にユーザーが確認すること）。
  */
 export async function POST(request: Request) {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -33,10 +33,14 @@ export async function POST(request: Request) {
   }
 
   const o = body as Record<string, unknown>;
-  const name = typeof o.name === "string" ? o.name.trim() : "";
-  if (name.length < 2) {
+  const nameJa = typeof o.name_ja === "string" ? o.name_ja.trim() : "";
+  const nameEn = typeof o.name_en === "string" ? o.name_en.trim() : "";
+  if (nameJa.length < 1 && nameEn.length < 2) {
     return NextResponse.json(
-      { error: "name_required", message: "名称は2文字以上で入力してください。" },
+      {
+        error: "name_required",
+        message: "名称（日本語または英語）を入力してください。",
+      },
       { status: 400 },
     );
   }
@@ -55,9 +59,12 @@ export async function POST(request: Request) {
         : undefined;
 
   const input = {
-    name,
-    name_en: typeof o.name_en === "string" ? o.name_en : undefined,
-    address: typeof o.address === "string" ? o.address : undefined,
+    name_ja: nameJa || nameEn,
+    name_en: nameEn || undefined,
+    address_ja:
+      typeof o.address_ja === "string" ? o.address_ja : undefined,
+    address_en:
+      typeof o.address_en === "string" ? o.address_en : undefined,
     place_id: typeof o.place_id === "string" ? o.place_id : undefined,
     lat: Number.isFinite(lat) ? lat : undefined,
     lng: Number.isFinite(lng) ? lng : undefined,
