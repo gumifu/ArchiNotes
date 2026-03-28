@@ -9,9 +9,7 @@ type BuildingCardProps = {
 };
 
 export function BuildingCard({ building, className = "" }: BuildingCardProps) {
-  const yearLabel = building.yearCompleted
-    ? `${building.yearCompleted}`
-    : "—";
+  const yearLabel = building.yearCompleted ? `${building.yearCompleted}` : "—";
   const locationLabel = [building.city, building.country]
     .filter(Boolean)
     .join(", ");
@@ -21,7 +19,7 @@ export function BuildingCard({ building, className = "" }: BuildingCardProps) {
       className={`flex flex-col overflow-hidden ${className}`}
       aria-label={building.name}
     >
-      <div className="relative aspect-16/10 w-full bg-muted">
+      <div className="bg-muted relative aspect-16/10 w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={getImageUrl(building.coverImageUrl)}
@@ -37,9 +35,7 @@ export function BuildingCard({ building, className = "" }: BuildingCardProps) {
           {building.nameJa ?? building.name}
         </h2>
         {building.nameJa && building.name !== building.nameJa && (
-          <p className="text-muted-foreground text-sm">
-            {building.name}
-          </p>
+          <p className="text-muted-foreground text-sm">{building.name}</p>
         )}
         <p className="text-muted-foreground text-sm">
           {building.architectName}

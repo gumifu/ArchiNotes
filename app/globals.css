@@ -80,3 +80,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Google Maps: 地図種類ドロップダウンを右寄せ（API の内部クラスは非保証） */
+.architecture-map-root .gm-style-mtc,
+.architecture-map-root .gm-style-mtc-bbw {
+  text-align: right;
+}
+
+.architecture-map-root .gm-style-mtc [role="menu"],
+.architecture-map-root .gm-style-mtc-bbw [role="menu"] {
+  text-align: right;
+}

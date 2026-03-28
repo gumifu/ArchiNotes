@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { BuildingCard } from "@/components/building-card";
+import { Button } from "@/components/ui/button";
 import type { Building } from "@/types/building";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -87,7 +87,7 @@ export function BuildingBottomSheet({
         style={{ pointerEvents: height === "closed" ? "none" : "auto" }}
       />
       <div
-        className="bg-background fixed left-0 right-0 z-40 flex flex-col rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.12)] transition-[height] duration-200 ease-out"
+        className="bg-background fixed right-0 left-0 z-40 flex flex-col rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.12)] transition-[height] duration-200 ease-out"
         style={{
           bottom: 0,
           height: heightStyle,

@@ -2,7 +2,7 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getLocalBuildings, getPublishedBuildings } from "@/lib/buildings";
-import { getImageUrl } from "@/lib/constants";
+import { getImageUrl, MAP_DEFAULT_CENTER } from "@/lib/constants";
 import type { Building } from "@/types/building";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import {
@@ -23,8 +23,58 @@ const MARKER_SIZE = 48;
 /** Advanced Marker 用の Map ID（未設定時は Google のデモ ID を使用） */
 const DEFAULT_MAP_ID = "DEMO_MAP_ID";
 
-const DEFAULT_CENTER = { lat: 35.6762, lng: 139.6503 }; // 東京
+const DEFAULT_CENTER = MAP_DEFAULT_CENTER;
 const DEFAULT_ZOOM = 12;
+
+/**
+ * デフォルト UI は位置がバラけるので disableDefaultUI から再構成。
+ * 地図種類は上辺の右端（BLOCK_START_INLINE_END）で右寄せ。ズーム等は右下（INLINE_END_BLOCK_END）。
+ * idle 後に再適用してレイアウトを確定させる。
+ */
+function MapControlsLayout() {
+  const map = useMap();
+
+  useEffect(() => {
+    if (
+      !map ||
+      typeof google === "undefined" ||
+      !google.maps?.ControlPosition
+    ) {
+      return;
+    }
+
+    const apply = () => {
+      const mapTypeTopRight =
+        google.maps.ControlPosition.BLOCK_START_INLINE_END;
+      const bottomRight = google.maps.ControlPosition.INLINE_END_BLOCK_END;
+      map.setOptions({
+        disableDefaultUI: true,
+        controlSize: 28,
+        rotateControl: false,
+        scaleControl: false,
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+          position: mapTypeTopRight,
+          style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+        },
+        zoomControl: true,
+        zoomControlOptions: { position: bottomRight },
+        streetViewControl: true,
+        streetViewControlOptions: { position: bottomRight },
+        fullscreenControl: true,
+        fullscreenControlOptions: { position: bottomRight },
+      });
+    };
+
+    apply();
+    const idleListener = google.maps.event.addListenerOnce(map, "idle", apply);
+    return () => {
+      google.maps.event.removeListener(idleListener);
+    };
+  }, [map]);
+
+  return null;
+}
 
 type BuildingMarkerProps = {
   building: Building;
@@ -216,7 +266,7 @@ export function ArchitectureMap({
 
   return (
     <div
-      className={`w-full ${fullscreen ? "h-screen min-h-0" : "min-h-[400px]"}`}
+      className={`architecture-map-root w-full ${fullscreen ? "h-screen min-h-0" : "min-h-[400px]"}`}
       style={
         fullscreen
           ? { height: "100vh", minHeight: 0 }
@@ -229,9 +279,10 @@ export function ArchitectureMap({
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={DEFAULT_ZOOM}
           gestureHandling="greedy"
-          disableDefaultUI={false}
+          disableDefaultUI
           style={{ width: "100%", height: "100%" }}
         >
+          <MapControlsLayout />
           {!loading && buildings.length > 0 && (
             <MapMarkers buildings={buildings} onSelect={handleSelect} />
           )}

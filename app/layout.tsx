@@ -1,3 +1,4 @@
+import { ThemeRegistry } from "@/components/theme-registry";
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -15,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="bg-background text-foreground min-h-screen antialiased">
-        {children}
+        <ThemeRegistry>{children}</ThemeRegistry>
       </body>
     </html>
   );
