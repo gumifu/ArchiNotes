@@ -404,6 +404,44 @@ export function ArchitectureMap({
     fetchBuildings();
   }, [fetchBuildings]);
 
+  /** 許可後のみセット。拒否・タイムアウトは東京の defaultCenter のまま */
+  const [geolocationPanTarget, setGeolocationPanTarget] = useState<{
+    lat: number;
+    lng: number;
+    key: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setGeolocationPanTarget({
+            lat,
+            lng,
+            key: "geolocation-initial",
+          });
+        }
+      },
+      () => {
+        /* ユーザーが拒否した場合など — フォールバックは MAP_DEFAULT_CENTER */
+      },
+      {
+        enableHighAccuracy: false,
+        maximumAge: 300_000,
+        timeout: 15_000,
+      },
+    );
+  }, []);
+
+  /** Places 候補パン > 建築フォーカス中は geo パンしない > 初回現在地 */
+  const effectivePanLatLng =
+    panTargetLatLng ??
+    (panTargetBuilding ? null : geolocationPanTarget);
+
   const handleSelect = useCallback(
     (building: Building) => {
       trackBuildingStat(building.id, "pin_click");
@@ -470,7 +508,7 @@ export function ArchitectureMap({
           <MapControlsLayout />
           <MapTypeControlPositionFix />
           <MapPanToFocus building={panTargetBuilding} />
-          <MapPanToLatLng target={panTargetLatLng} />
+          <MapPanToLatLng target={effectivePanLatLng} />
           {!loading && buildings.length > 0 && (
             <MapMarkers
               buildings={buildings}
